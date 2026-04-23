@@ -52,13 +52,13 @@
     <!-- Firebase Modular SDK Import -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 將 Firebase 模組掛載到 global 以供 React 使用
         window.FirebaseModules = {
-            initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged,
-            getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+            getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc
         };
     </script>
 </head>
@@ -81,12 +81,12 @@
             return d.toISOString().split('T')[0];
         };
 
-        // --- Gemini API Integration ---
-        const apiKey = ""; // API Key 會由執行環境自動注入
+        // --- Gemini API Integration (Optional/Placeholder) ---
+        const apiKey = ""; // 如果您想在 Netlify 上使用 AI 功能，您需要申請 Google Gemini API 金鑰並填入此處
 
         const callGeminiAPI = async (prompt) => {
             if (!apiKey) {
-                console.warn("API Key is missing.");
+                return "尚未設定 API 金鑰，AI 輔助功能暫時無法使用。";
             }
             try {
                 const response = await fetch(
@@ -104,66 +104,9 @@
                 return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成內容";
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                return null;
+                return "AI 服務連線失敗。";
             }
         };
-
-        // --- Mock Data (For Initial DB Seeding) ---
-        const initialCases = [
-            {
-                id: '1',
-                caseNumber: 'TY-20231027-001',
-                petitioner: { name: '王小明', phone: '0912-345-678', email: 'wang@example.com' },
-                location: { district: '桃園區', address: '縣府路1號' },
-                content: '市政府門口路燈閃爍，影響行車安全，請盡快修繕。',
-                status: 'PENDING',
-                category: 'SIGNAL',
-                createdAt: '2023-10-27 10:00',
-                history: [{ date: '2023-10-27 10:00', author: '王小明 (民眾)', content: '案件建立', type: 'USER' }],
-                extData: {}
-            },
-            {
-                id: '2',
-                caseNumber: 'TY-20231026-005',
-                petitioner: { name: '李春嬌', phone: '', email: 'li_chun@example.com' },
-                location: { district: '中壢區', address: '中正路與延平路口' },
-                content: '中正路水溝蓋發出惡臭，似乎有堵塞情況。',
-                status: 'UNSATISFIED',
-                category: 'SIGN', 
-                createdAt: '2023-10-26 14:30',
-                history: [
-                    { date: '2023-10-26 14:30', author: '李春嬌 (民眾)', content: '案件建立', type: 'USER' },
-                    { date: '2023-10-27 09:00', author: '承辦人員', content: '第一階段回覆：已派員勘查。', type: 'STAFF' }
-                ],
-                extData: {
-                    surveyDate: '2023-10-27', 
-                    surveyDocNo: '桃交字第112000123號', 
-                    assignee: '陳專員',
-                    recordDeadline: '2023-11-05', // 模擬已逾期的取號期限
-                    recordActualDate: '' // 尚未填寫實際日期，會觸發通知
-                }
-            },
-            {
-                id: '3',
-                caseNumber: 'TY-20231025-012',
-                petitioner: { name: '陳志豪', phone: '0988-777-666', email: '' },
-                location: { district: '龜山區', address: '文化一路250號' },
-                content: '公車指示牌脫落，請協助修復。',
-                status: 'CLOSED',
-                category: 'SIGN',
-                createdAt: '2023-10-25 08:15',
-                history: [
-                    { date: '2023-10-25 08:15', author: '陳志豪 (民眾)', content: '案件建立', type: 'USER' },
-                    { date: '2023-10-28 16:00', author: '承辦人員', content: '更新案件資訊並結案', type: 'STAFF' }
-                ],
-                extData: {
-                    surveyDate: '2023-10-26',
-                    dispatchDate: '2023-10-26', 
-                    completionDate: '2023-10-28', 
-                    surveyResolution: '補強鎖固'
-                }
-            }
-        ];
 
         // --- Icons (SVG Components) ---
         const Icons = {
@@ -240,13 +183,11 @@
         const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config }) => {
             const [filter, setFilter] = useState('');
             
-            // Filter Logic based on Config Tabs (PROCESSING vs CLOSED)
             const tabFilteredCases = cases.filter(c => {
                 const currentTabConfig = config.tabs.find(t => t.id === activeTab);
                 return currentTabConfig ? currentTabConfig.filter(c) : true;
             });
 
-            // Enhanced Search logic: across district, address, content, petitioner, caseNumber
             const filteredCases = tabFilteredCases.filter(c => {
                 const keyword = filter.toLowerCase();
                 return (c.caseNumber && c.caseNumber.toLowerCase().includes(keyword)) ||
@@ -258,7 +199,6 @@
 
             return (
                 <div className="bg-white rounded-lg shadow h-full flex flex-col">
-                    {/* Tabs */}
                     <div className="flex border-b overflow-x-auto">
                         {config.tabs.map(tab => (
                             <button 
@@ -286,7 +226,6 @@
                         </div>
                     </div>
                     
-                    {/* Desktop View (Table) */}
                     <div className="hidden md:block flex-1 overflow-y-auto">
                         <table className="w-full text-sm text-left text-gray-500">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 shadow-sm">
@@ -332,7 +271,6 @@
                         </table>
                     </div>
 
-                    {/* Mobile View (Cards) */}
                     <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 pb-16">
                         {filteredCases.map(c => (
                             <div key={c.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 active:scale-[0.99] transition-transform" onClick={() => onSelectCase(c)}>
@@ -372,16 +310,14 @@
             const isCouncilor = systemType === 'COUNCILOR';
             
             const [formData, setFormData] = useState({
-                // 若為本局列管，自動生成隱藏的編號
                 caseNumber: isCouncilor ? `COUNCIL-${Date.now()}` : '',
                 category: isCouncilor ? 'SURVEY' : 'OTHER',
                 name: '', 
                 phone: '', 
                 email: '', 
-                district: '桃園區', // Default district
+                district: '桃園區',
                 address: '', 
                 content: '',
-                // 本局列管擴充欄位 (部分欄位移至建立後填寫，此處僅保留基本會勘安排)
                 extData: {
                     surveyDate: '',
                     surveyDocNo: '',
@@ -429,7 +365,6 @@
                         </div>
                         
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* --- 基本資料區塊 --- */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-bold text-gray-700 bg-gray-50 p-2 rounded">基本資料</h3>
                                 
@@ -504,7 +439,6 @@
                                 </div>
                             </div>
 
-                            {/* --- 本局列管擴充欄位區塊 --- */}
                             {isCouncilor && (
                                 <div className="space-y-4 pt-4 border-t">
                                     <h3 className="text-lg font-bold text-gray-700 bg-purple-50 p-2 rounded">本局列管 - 會勘基本資訊</h3>
@@ -522,7 +456,6 @@
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     handleExtDataChange('surveyDate', val);
-                                                    // 自動計算並連動更新取號期限
                                                     handleExtDataChange('recordDeadline', calculateDeadline(val));
                                                 }} 
                                             />
@@ -560,7 +493,6 @@
             const [errorMsg, setErrorMsg] = useState('');
             const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', content: '', actions: null });
             
-            // 獨立的狀態以處理本局列管的更新
             const [editExtData, setEditExtData] = useState({
                 surveyDate: '',
                 recordDeadline: '',
@@ -587,7 +519,6 @@
 
             const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
-            // 一般市政信箱處理回覆
             const handleReply = (stage) => {
                 if(!replyContent && stage !== 'CLOSED') {
                     setErrorMsg('⚠️ 請先輸入回覆內容才能送出');
@@ -598,7 +529,6 @@
                 setReplyContent('');
             };
 
-            // 本局列管處理資料更新
             const handleExtDataReply = (stage) => {
                 const actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
                 onUpdateStatus(caseData.id, stage, actionText, editExtData);
@@ -631,7 +561,6 @@
                 <div className="h-full flex flex-col md:flex-row gap-6 relative pb-16 md:pb-0">
                     <Modal {...modalConfig} />
                     
-                    {/* Info Column */}
                     <div className="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-lg flex flex-col overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <button onClick={onBack} className="text-gray-500 hover:text-gray-800 flex items-center gap-1 text-sm font-bold transition-colors bg-gray-100 px-3 py-1.5 rounded-full">
@@ -659,7 +588,6 @@
                         )}
                         
                         <div className="space-y-5">
-                            {/* 通用基本資料 */}
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
                                 <h3 className="font-bold text-gray-800 mb-3 border-b pb-2">基本陳情資料</h3>
                                 <div className="grid grid-cols-1 gap-3 text-sm">
@@ -690,7 +618,6 @@
                                 </div>
                             </div>
 
-                            {/* 本局列管專屬資料 (展示用) */}
                             {isCouncilor && caseData.extData && (
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                                     <h3 className="font-bold text-blue-800 mb-3 border-b border-blue-200 pb-2">處理與會勘資訊</h3>
@@ -745,7 +672,6 @@
                         </div>
                     </div>
 
-                    {/* Timeline Action Column */}
                     <div className="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-lg overflow-y-auto pb-16 md:pb-6 flex flex-col">
                         <h3 className="text-lg font-bold mb-6 border-b pb-2 flex items-center gap-2 text-gray-800">
                             <Icons.List /> 處理進度與歷程
@@ -768,7 +694,6 @@
                             ))}
                         </div>
 
-                        {/* Action Area */}
                         {caseData.status !== 'CLOSED' && (
                             <div className="pt-6 border-t mt-auto bg-gray-50 -mx-6 -mb-6 px-6 pb-6 pt-4">
                                 {isCouncilor ? (
@@ -894,47 +819,102 @@
         };
 
         // --- Case Management System Container ---
-        const CaseManagementSystem = ({ systemType, onBackToHome, user, dbReady }) => {
-            const [view, setView] = useState('LIST'); // 預設視圖改為 LIST (移除 DASHBOARD)
+        const CaseManagementSystem = ({ systemType, onBackToHome }) => {
+            const [view, setView] = useState('LIST'); 
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             
             // Notifications State
             const [showNotifications, setShowNotifications] = useState(false);
 
-            // Fetch from Firebase
+            // Fetch from Firebase: 使用獨立的設定，請填寫您的 Firebase 設定
             useEffect(() => {
-                if (!user || !dbReady) return;
-                const { collection, onSnapshot, doc, setDoc } = window.FirebaseModules;
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                
-                const casesRef = collection(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases');
-                
-                const unsubscribe = onSnapshot(casesRef, (snapshot) => {
-                    const loadedCases = [];
-                    snapshot.forEach(d => {
-                        loadedCases.push({ id: d.id, ...d.data() });
-                    });
-                    
-                    // Seed initial data if completely empty
-                    if (snapshot.empty && loadedCases.length === 0 && !window.hasSeeded) {
-                        window.hasSeeded = true;
-                        initialCases.forEach(async (c) => {
-                            const cRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', c.id);
-                            await setDoc(cRef, c);
-                        });
-                    } else {
-                        loadedCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                        setCases(loadedCases);
-                    }
-                }, (error) => {
-                    console.error("Firestore error:", error);
-                });
-                
-                return () => unsubscribe();
-            }, [user, dbReady]);
+                let unsubscribe = null;
 
-            // Define config dynamically based on system type
+                const initStandaloneFirebase = async () => {
+                    const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc } = window.FirebaseModules;
+                    
+                    // 【修改這裡】請填入您自己的 Firebase 設定！
+                    // 若沒有填入，系統會嘗試使用 localStorage 作為本地備用方案
+                    const myFirebaseConfig = {
+                        apiKey: "YOUR_API_KEY",
+                        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                        projectId: "YOUR_PROJECT_ID",
+                        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+                        messagingSenderId: "YOUR_SENDER_ID",
+                        appId: "YOUR_APP_ID"
+                    };
+
+                    try {
+                        // 如果 apiKey 還是預設值，代表使用者還沒設定，退回使用 LocalStorage 模式
+                        if (myFirebaseConfig.apiKey === "YOUR_API_KEY") {
+                            console.warn("尚未設定 Firebase Config，使用 LocalStorage 模式儲存。");
+                            const localData = localStorage.getItem('cases_backup');
+                            if (localData) {
+                                setCases(JSON.parse(localData));
+                            } else {
+                                setCases(initialCases);
+                                localStorage.setItem('cases_backup', JSON.stringify(initialCases));
+                            }
+                            return;
+                        }
+
+                        if (!window.fbStandaloneApp) {
+                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "StandaloneApp");
+                            window.fbStandaloneDb = getFirestore(window.fbStandaloneApp);
+                        }
+
+                        const db = window.fbStandaloneDb;
+                        // 改用自定義的集合路徑 (避開 AI 平台的權限限制)
+                        const casesRef = collection(db, 'my_cases');
+                        const metaRef = doc(db, 'my_meta', 'seed_status');
+
+                        const metaSnap = await getDoc(metaRef);
+                        if (!metaSnap.exists()) {
+                            await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
+                            for (const c of initialCases) {
+                                const cRef = doc(db, 'my_cases', c.id);
+                                await setDoc(cRef, c);
+                            }
+                        }
+
+                        unsubscribe = onSnapshot(casesRef, (snapshot) => {
+                            const loadedCases = [];
+                            snapshot.forEach(d => {
+                                loadedCases.push({ id: d.id, ...d.data() });
+                            });
+                            loadedCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                            setCases(loadedCases);
+                        }, (error) => {
+                            console.error("Firestore error:", error);
+                        });
+
+                    } catch(e) {
+                        console.error("Firebase 初始化失敗:", e);
+                    }
+                };
+
+                // 等待模組載入後執行
+                const checkFirebase = setInterval(() => {
+                    if (window.FirebaseModules) {
+                        clearInterval(checkFirebase);
+                        initStandaloneFirebase();
+                    }
+                }, 50);
+
+                return () => {
+                    clearInterval(checkFirebase);
+                    if (unsubscribe) unsubscribe();
+                };
+            }, []);
+
+            // 備用方案：當案件變動時，同步存入 LocalStorage
+            useEffect(() => {
+                if (cases.length > 0) {
+                    localStorage.setItem('cases_backup', JSON.stringify(cases));
+                }
+            }, [cases]);
+
             const config = useMemo(() => {
                 const baseTabs = [
                     { id: 'PROCESSING', label: '辦理中', color: 'blue', icon: Icons.List, filter: c => c.status !== 'CLOSED' },
@@ -954,7 +934,7 @@
                         title: '本局列管案件',
                         theme: 'purple',
                         showCategory: true,
-                        showCaseNumber: false, // 隱藏案件編號
+                        showCaseNumber: false,
                         tabs: baseTabs
                     };
                 }
@@ -962,23 +942,21 @@
 
             const [activeListTab, setActiveListTab] = useState(config.tabs[0].id);
 
-            // 計算逾期未取號案件
             const overdueCases = useMemo(() => {
                 if (systemType !== 'COUNCILOR') return [];
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
                 return cases.filter(c => {
-                    if (c.status === 'CLOSED') return false; // 已結案不跳通知
-                    if (!c.extData || !c.extData.recordDeadline) return false; // 沒設期限不跳通知
-                    if (c.extData.recordActualDate) return false; // 已填實際日期不跳通知
+                    if (c.status === 'CLOSED') return false; 
+                    if (!c.extData || !c.extData.recordDeadline) return false; 
+                    if (c.extData.recordActualDate) return false; 
                     
                     const deadline = new Date(c.extData.recordDeadline);
-                    return today > deadline; // 超過今天算逾期
+                    return today > deadline; 
                 });
             }, [cases, systemType]);
 
-            // Create (Sync to Firebase)
             const handleCreateCase = async (newCase) => {
                 const caseId = Date.now().toString();
                 const caseRecord = {
@@ -994,20 +972,18 @@
                     extData: newCase.extData
                 };
                 
-                if (user && dbReady) {
+                if (window.fbStandaloneDb) {
                     const { doc, setDoc } = window.FirebaseModules;
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', caseId);
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', caseId);
                     await setDoc(caseRef, caseRecord);
                 } else {
                     setCases([caseRecord, ...cases]);
                 }
 
                 setView('LIST');
-                setActiveListTab('PROCESSING'); // 新增後切回辦理中
+                setActiveListTab('PROCESSING'); 
             };
 
-            // Update Status / Reply (Sync to Firebase)
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
@@ -1030,10 +1006,9 @@
                     extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData
                 };
 
-                if (user && dbReady) {
+                if (window.fbStandaloneDb) {
                     const { doc, setDoc } = window.FirebaseModules;
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', id);
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
                     await setDoc(caseRef, updatedCase);
                 } else {
                     setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
@@ -1042,12 +1017,10 @@
                 setSelectedCase(updatedCase);
             };
 
-            // Delete Case (Sync to Firebase)
             const handleDeleteCase = async (id) => {
-                if (user && dbReady) {
+                if (window.fbStandaloneDb) {
                     const { doc, deleteDoc } = window.FirebaseModules;
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', id);
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
                     await deleteDoc(caseRef);
                 } else {
                     setCases(prevCases => prevCases.filter(c => c.id !== id));
@@ -1063,7 +1036,6 @@
 
             return (
                 <div className="h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row bg-slate-100">
-                    {/* Sidebar (Desktop) */}
                     <aside className="hidden md:flex w-64 bg-slate-800 text-white flex-col shrink-0 shadow-xl z-20">
                         <div className="p-6 border-b border-slate-700">
                             <button onClick={onBackToHome} className="flex items-center gap-2 text-slate-400 hover:text-white text-xs mb-6 transition-colors group w-fit">
@@ -1087,7 +1059,6 @@
                         </div>
                     </aside>
 
-                    {/* Bottom Navigation (Mobile) */}
                     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center p-2 z-bottom-nav h-16 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                         <button onClick={onBackToHome} className="flex flex-col items-center p-2 text-gray-400 w-16">
                             <Icons.Home />
@@ -1105,9 +1076,7 @@
                         </button>
                     </div>
 
-                    {/* Main Content */}
                     <main className="flex-1 flex flex-col min-w-0 mb-16 md:mb-0 h-full overflow-hidden relative">
-                        {/* Header */}
                         <header className="bg-white shadow-sm px-5 md:px-8 py-4 flex justify-between items-center z-[60] shrink-0 border-b border-gray-200 relative">
                             <div className="flex items-center gap-3">
                                 <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">
@@ -1117,7 +1086,6 @@
                                 </h2>
                             </div>
                             <div className="flex items-center gap-4">
-                                {/* Notifications Dropdown */}
                                 {systemType === 'COUNCILOR' && (
                                     <div className="relative">
                                         <button 
@@ -1134,7 +1102,6 @@
 
                                         {showNotifications && (
                                             <>
-                                                {/* Invisible overlay to catch outside clicks */}
                                                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
                                                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in origin-top-right">
                                                     <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex justify-between items-center">
@@ -1181,7 +1148,6 @@
                             </div>
                         </header>
 
-                        {/* Content Area */}
                         <div className="flex-1 p-4 md:p-8 overflow-hidden flex flex-col">
                             {view === 'LIST' && (
                                 <CaseList 
@@ -1214,53 +1180,9 @@
 
         const App = () => {
             const [currentSystem, setCurrentSystem] = useState(null);
-            const [user, setUser] = useState(null);
-            const [dbReady, setDbReady] = useState(false);
-
-            useEffect(() => {
-                const checkFirebase = setInterval(() => {
-                    if (window.FirebaseModules) {
-                        clearInterval(checkFirebase);
-                        initAuth();
-                    }
-                }, 50);
-
-                const initAuth = async () => {
-                    const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseModules;
-                    
-                    if (typeof __firebase_config === 'undefined') return;
-                    
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    if (!window.fbApp) {
-                        window.fbApp = initializeApp(firebaseConfig);
-                        window.fbAuth = getAuth(window.fbApp);
-                        window.fbDb = getFirestore(window.fbApp);
-                    }
-
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(window.fbAuth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(window.fbAuth);
-                    }
-
-                    onAuthStateChanged(window.fbAuth, (u) => {
-                        setUser(u);
-                        if (u) setDbReady(true);
-                    });
-                };
-
-                return () => clearInterval(checkFirebase);
-            }, []);
-
-            if (!currentSystem) return <LandingPage onSelect={setCurrentSystem} />;
             
-            return <CaseManagementSystem 
-                key={currentSystem} 
-                systemType={currentSystem} 
-                onBackToHome={() => setCurrentSystem(null)} 
-                user={user}
-                dbReady={dbReady}
-            />;
+            if (!currentSystem) return <LandingPage onSelect={setCurrentSystem} />;
+            return <CaseManagementSystem key={currentSystem} systemType={currentSystem} onBackToHome={() => setCurrentSystem(null)} />;
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
