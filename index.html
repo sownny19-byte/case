@@ -48,6 +48,19 @@
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
+
+    <!-- Firebase Modular SDK Import -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 將 Firebase 模組掛載到 global 以供 React 使用
+        window.FirebaseModules = {
+            initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged,
+            getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot
+        };
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -95,7 +108,7 @@
             }
         };
 
-        // --- Mock Data ---
+        // --- Mock Data (For Initial DB Seeding) ---
         const initialCases = [
             {
                 id: '1',
@@ -881,13 +894,45 @@
         };
 
         // --- Case Management System Container ---
-        const CaseManagementSystem = ({ systemType, onBackToHome }) => {
+        const CaseManagementSystem = ({ systemType, onBackToHome, user, dbReady }) => {
             const [view, setView] = useState('LIST'); // 預設視圖改為 LIST (移除 DASHBOARD)
-            const [cases, setCases] = useState(initialCases);
+            const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             
             // Notifications State
             const [showNotifications, setShowNotifications] = useState(false);
+
+            // Fetch from Firebase
+            useEffect(() => {
+                if (!user || !dbReady) return;
+                const { collection, onSnapshot, doc, setDoc } = window.FirebaseModules;
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                
+                const casesRef = collection(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases');
+                
+                const unsubscribe = onSnapshot(casesRef, (snapshot) => {
+                    const loadedCases = [];
+                    snapshot.forEach(d => {
+                        loadedCases.push({ id: d.id, ...d.data() });
+                    });
+                    
+                    // Seed initial data if completely empty
+                    if (snapshot.empty && loadedCases.length === 0 && !window.hasSeeded) {
+                        window.hasSeeded = true;
+                        initialCases.forEach(async (c) => {
+                            const cRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', c.id);
+                            await setDoc(cRef, c);
+                        });
+                    } else {
+                        loadedCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                        setCases(loadedCases);
+                    }
+                }, (error) => {
+                    console.error("Firestore error:", error);
+                });
+                
+                return () => unsubscribe();
+            }, [user, dbReady]);
 
             // Define config dynamically based on system type
             const config = useMemo(() => {
@@ -933,10 +978,11 @@
                 });
             }, [cases, systemType]);
 
-            // Create
-            const handleCreateCase = (newCase) => {
+            // Create (Sync to Firebase)
+            const handleCreateCase = async (newCase) => {
+                const caseId = Date.now().toString();
                 const caseRecord = {
-                    id: Date.now().toString(),
+                    id: caseId,
                     caseNumber: newCase.caseNumber,
                     category: newCase.category, 
                     petitioner: { name: newCase.name, phone: newCase.phone, email: newCase.email },
@@ -947,42 +993,65 @@
                     history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
                     extData: newCase.extData
                 };
-                setCases([caseRecord, ...cases]);
+                
+                if (user && dbReady) {
+                    const { doc, setDoc } = window.FirebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', caseId);
+                    await setDoc(caseRef, caseRecord);
+                } else {
+                    setCases([caseRecord, ...cases]);
+                }
+
                 setView('LIST');
                 setActiveListTab('PROCESSING'); // 新增後切回辦理中
             };
 
-            // Update Status / Reply
-            const handleUpdateStatus = (id, newStatus, replyText, newExtData) => {
-                setCases(prevCases => prevCases.map(c => {
-                    if (c.id !== id) return c;
+            // Update Status / Reply (Sync to Firebase)
+            const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
+                const caseToUpdate = cases.find(c => c.id === id);
+                if (!caseToUpdate) return;
 
-                    let updatedHistory = c.history;
-                    if (replyText) {
-                        const newHistory = {
-                            date: new Date().toLocaleString(),
-                            author: '承辦人員',
-                            content: replyText,
-                            type: 'STAFF'
-                        };
-                        updatedHistory = [...c.history, newHistory];
-                    }
-
-                    const updatedCase = {
-                        ...c,
-                        status: newStatus,
-                        history: updatedHistory,
-                        extData: newExtData ? { ...c.extData, ...newExtData } : c.extData
+                let updatedHistory = caseToUpdate.history;
+                if (replyText) {
+                    const newHistory = {
+                        date: new Date().toLocaleString(),
+                        author: '承辦人員',
+                        content: replyText,
+                        type: 'STAFF'
                     };
-                    
-                    setSelectedCase(updatedCase);
-                    return updatedCase;
-                }));
+                    updatedHistory = [...caseToUpdate.history, newHistory];
+                }
+
+                const updatedCase = {
+                    ...caseToUpdate,
+                    status: newStatus,
+                    history: updatedHistory,
+                    extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData
+                };
+
+                if (user && dbReady) {
+                    const { doc, setDoc } = window.FirebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', id);
+                    await setDoc(caseRef, updatedCase);
+                } else {
+                    setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
+                }
+                
+                setSelectedCase(updatedCase);
             };
 
-            // Delete Case
-            const handleDeleteCase = (id) => {
-                setCases(prevCases => prevCases.filter(c => c.id !== id));
+            // Delete Case (Sync to Firebase)
+            const handleDeleteCase = async (id) => {
+                if (user && dbReady) {
+                    const { doc, deleteDoc } = window.FirebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const caseRef = doc(window.fbDb, 'artifacts', appId, 'public', 'data', 'cases', id);
+                    await deleteDoc(caseRef);
+                } else {
+                    setCases(prevCases => prevCases.filter(c => c.id !== id));
+                }
                 setSelectedCase(null);
                 setView('LIST');
             };
@@ -1145,8 +1214,53 @@
 
         const App = () => {
             const [currentSystem, setCurrentSystem] = useState(null);
+            const [user, setUser] = useState(null);
+            const [dbReady, setDbReady] = useState(false);
+
+            useEffect(() => {
+                const checkFirebase = setInterval(() => {
+                    if (window.FirebaseModules) {
+                        clearInterval(checkFirebase);
+                        initAuth();
+                    }
+                }, 50);
+
+                const initAuth = async () => {
+                    const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseModules;
+                    
+                    if (typeof __firebase_config === 'undefined') return;
+                    
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    if (!window.fbApp) {
+                        window.fbApp = initializeApp(firebaseConfig);
+                        window.fbAuth = getAuth(window.fbApp);
+                        window.fbDb = getFirestore(window.fbApp);
+                    }
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(window.fbAuth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(window.fbAuth);
+                    }
+
+                    onAuthStateChanged(window.fbAuth, (u) => {
+                        setUser(u);
+                        if (u) setDbReady(true);
+                    });
+                };
+
+                return () => clearInterval(checkFirebase);
+            }, []);
+
             if (!currentSystem) return <LandingPage onSelect={setCurrentSystem} />;
-            return <CaseManagementSystem key={currentSystem} systemType={currentSystem} onBackToHome={() => setCurrentSystem(null)} />;
+            
+            return <CaseManagementSystem 
+                key={currentSystem} 
+                systemType={currentSystem} 
+                onBackToHome={() => setCurrentSystem(null)} 
+                user={user}
+                dbReady={dbReady}
+            />;
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
