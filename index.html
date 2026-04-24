@@ -71,11 +71,11 @@
     <!-- Firebase Modular SDK Import -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         window.FirebaseModules = {
-            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+            initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
             getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc
         };
     </script>
@@ -126,6 +126,7 @@
             Undo: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>,
             Folder: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
+            Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
         };
 
         // --- UI Components ---
@@ -160,20 +161,30 @@
                 SURVEY: { color: 'bg-indigo-50 text-indigo-700', label: '會勘' },
                 REPLY: { color: 'bg-cyan-50 text-cyan-700', label: '回復' },
                 A1: { color: 'bg-rose-50 text-rose-700', label: 'A1事故' },
+                DIRECTOR: { color: 'bg-red-100 text-red-700', label: '局長案' },
+                TEMP: { color: 'bg-orange-100 text-orange-700', label: '臨時交辦' },
+                OTHER_SPECIAL: { color: 'bg-stone-100 text-stone-700', label: '其他(特殊)' },
             }[category] || { color: 'bg-slate-100 text-slate-600', label: '未分類' };
             return <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide ${config.color} whitespace-nowrap`}>{config.label}</span>;
         };
 
         // --- Views ---
-        const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config }) => {
+        const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config, isSpecialMode }) => {
             const [filter, setFilter] = useState('');
-            const tabFilteredCases = cases.filter(c => config.tabs.find(t => t.id === activeTab)?.filter(c));
+            
+            // 根據目前模式過濾案件類型 (一般 vs 特殊)
+            const modeFilteredCases = cases.filter(c => isSpecialMode ? c.caseType === 'SPECIAL' : c.caseType !== 'SPECIAL');
+            
+            // 再根據狀態頁籤過濾 (辦理中 vs 已結案)
+            const tabFilteredCases = modeFilteredCases.filter(c => config.tabs.find(t => t.id === activeTab)?.filter(c));
+            
             const filteredCases = tabFilteredCases.filter(c => {
                 const keyword = filter.toLowerCase();
                 return (c.caseNumber && c.caseNumber.toLowerCase().includes(keyword)) ||
-                       (c.location.address?.toLowerCase().includes(keyword)) ||
-                       (c.location.district?.toLowerCase().includes(keyword)) ||
-                       (c.petitioner.name?.toLowerCase().includes(keyword)) ||
+                       (c.location?.address?.toLowerCase().includes(keyword)) ||
+                       (c.location?.district?.toLowerCase().includes(keyword)) ||
+                       (c.petitioner?.name?.toLowerCase().includes(keyword)) ||
+                       (c.extData?.assignee?.toLowerCase().includes(keyword)) ||
                        (c.content?.toLowerCase().includes(keyword));
             });
 
@@ -183,10 +194,11 @@
                     <div className="flex p-1.5 bg-white shadow-soft rounded-2xl w-fit mb-6 mx-auto md:mx-0">
                         {config.tabs.map(tab => {
                             const isActive = activeTab === tab.id;
+                            const activeColor = isSpecialMode ? 'bg-red-500 text-white shadow-md' : 'bg-primary text-white shadow-md';
                             return (
                                 <button 
                                     key={tab.id}
-                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? activeColor : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
                                     onClick={() => onTabChange(tab.id)}
                                 >
                                     <tab.icon /> {tab.label}
@@ -202,8 +214,8 @@
                         </div>
                         <input 
                             type="text" 
-                            placeholder="輸入關鍵字 (如：地點、行政區、陳情內容)..." 
-                            className="w-full pl-12 pr-4 py-4 bg-white shadow-soft rounded-2xl text-slate-700 placeholder-slate-400 focus:ring-4 focus:ring-indigo-500/20 border-none transition-all"
+                            placeholder={`輸入關鍵字 (如：${isSpecialMode ? '交辦內容、承辦人' : '地點、陳情人、內容'})...`}
+                            className={`w-full pl-12 pr-4 py-4 bg-white shadow-soft rounded-2xl text-slate-700 placeholder-slate-400 focus:ring-4 border-none transition-all ${isSpecialMode ? 'focus:ring-red-500/20' : 'focus:ring-indigo-500/20'}`}
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                         />
@@ -215,9 +227,9 @@
                             <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
                                 <tr>
                                     <th className="px-6 py-5 font-bold">狀態 / 類別</th>
-                                    <th className="px-6 py-5 font-bold">地點資訊</th>
-                                    <th className="px-6 py-5 font-bold">陳情人</th>
-                                    <th className="px-6 py-5 font-bold w-1/3">陳情內容</th>
+                                    <th className="px-6 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
+                                    <th className="px-6 py-5 font-bold">{isSpecialMode ? '交辦時間' : '陳情人'}</th>
+                                    <th className="px-6 py-5 font-bold w-1/3">{isSpecialMode ? '交辦內容' : '陳情內容'}</th>
                                     <th className="px-6 py-5 font-bold text-center">操作</th>
                                 </tr>
                             </thead>
@@ -230,18 +242,27 @@
                                                 <CategoryBadge category={c.category} />
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-700">{c.location.district}</div>
-                                            <div className="text-slate-500 text-xs mt-1 truncate max-w-[180px]">{c.location.address}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-slate-600">{c.petitioner.name}</td>
+                                        {isSpecialMode ? (
+                                            <>
+                                                <td className="px-6 py-4 font-bold text-slate-700">{c.extData?.assignee || '未指派'}</td>
+                                                <td className="px-6 py-4 text-slate-500">{c.extData?.assignDate || '-'}</td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-slate-700">{c.location?.district || '-'}</div>
+                                                    <div className="text-slate-500 text-xs mt-1 truncate max-w-[180px]">{c.location?.address || '-'}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-medium text-slate-600">{c.petitioner?.name || '-'}</td>
+                                            </>
+                                        )}
                                         <td className="px-6 py-4">
                                             <div className="text-slate-500 line-clamp-2 leading-relaxed">{c.content}</div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <button 
                                                 onClick={() => onSelectCase(c)}
-                                                className="font-bold text-primary hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-5 py-2 rounded-xl transition-all"
+                                                className={`font-bold px-5 py-2 rounded-xl transition-all ${isSpecialMode ? 'text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100' : 'text-primary hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
                                             >
                                                 查看詳情
                                             </button>
@@ -261,16 +282,29 @@
                     {/* Mobile Cards (Modernized) */}
                     <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
                         {filteredCases.map(c => (
-                            <div key={c.id} className="bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform" onClick={() => onSelectCase(c)}>
+                            <div key={c.id} className={`bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-transparent'}`} onClick={() => onSelectCase(c)}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex flex-col gap-2">
                                         <StatusBadge status={c.status} />
                                         <CategoryBadge category={c.category} />
                                     </div>
-                                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{c.location.district}</span>
+                                    {!isSpecialMode && c.location?.district && (
+                                        <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{c.location?.district}</span>
+                                    )}
                                 </div>
-                                <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location.address}</div>
-                                <div className="text-sm text-slate-400 mb-3">陳情人：{c.petitioner.name}</div>
+                                
+                                {isSpecialMode ? (
+                                    <>
+                                        <div className="font-bold text-slate-800 mb-1 leading-snug">承辦人：{c.extData?.assignee || '未指派'}</div>
+                                        <div className="text-sm text-slate-400 mb-3">交辦日期：{c.extData?.assignDate || '-'}</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
+                                        <div className="text-sm text-slate-400 mb-3">陳情人：{c.petitioner?.name}</div>
+                                    </>
+                                )}
+                                
                                 <div className="text-sm text-slate-500 line-clamp-2 bg-slate-50 p-3 rounded-2xl leading-relaxed">
                                     {c.content}
                                 </div>
@@ -284,11 +318,17 @@
             );
         };
 
-        const CaseForm = ({ onSubmit, onCancel }) => {
+        const CaseForm = ({ onSubmit, onCancel, isSpecialMode }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [formData, setFormData] = useState({
-                category: 'SURVEY', name: '', district: '桃園區', address: '', content: '',
-                extData: { surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false, dismissedMonthNotice: false }
+                caseType: isSpecialMode ? 'SPECIAL' : 'NORMAL',
+                category: isSpecialMode ? 'DIRECTOR' : 'SURVEY', 
+                name: '', district: '桃園區', address: '', content: '',
+                extData: { 
+                    surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false, dismissedMonthNotice: false,
+                    // Special Extra Fields
+                    assignDate: '', handlingStatus: ''
+                }
             });
 
             const handleExtData = (f, v) => setFormData(p => ({ ...p, extData: { ...p.extData, [f]: v } }));
@@ -297,85 +337,126 @@
                 try { await onSubmit(formData); } catch (err) { console.warn(err); } finally { setIsSubmitting(false); }
             };
 
+            const themeColor = isSpecialMode ? 'text-red-500' : 'text-primary';
+            const themeBg = isSpecialMode ? 'bg-red-50' : 'bg-indigo-50';
+            const themeBtn = isSpecialMode ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-indigo-600';
+            const themeRing = isSpecialMode ? 'focus:ring-red-500/20' : 'focus:ring-indigo-500/20';
+
             return (
                 <div className="h-full flex justify-center animate-fade-in overflow-y-auto pb-20 md:pb-0">
                     <div className="w-full max-w-4xl bg-white p-6 md:p-10 rounded-3xl shadow-soft h-fit">
                         <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
-                            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-primary">
-                                <Icons.Plus />
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${themeBg} ${themeColor}`}>
+                                {isSpecialMode ? <Icons.Star /> : <Icons.Plus />}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black text-slate-800 tracking-wide">新增案件資料</h2>
-                                <p className="text-sm text-slate-400 mt-1">請填寫完整的案件與會勘資訊</p>
+                                <h2 className="text-2xl font-black text-slate-800 tracking-wide">{isSpecialMode ? '新增特殊交辦案件' : '新增案件資料'}</h2>
+                                <p className="text-sm text-slate-400 mt-1">{isSpecialMode ? '記錄長官交辦或特殊列管之案件' : '請填寫完整的案件與會勘資訊'}</p>
                             </div>
                         </div>
                         
                         <form onSubmit={handleSubmit} className="space-y-10">
                             <section>
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-5 px-1">基本資料</h3>
+                                <h3 className={`text-sm font-bold uppercase tracking-wider mb-5 px-1 ${themeColor}`}>基本資料</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div className="space-y-1.5">
                                         <label className="text-sm font-medium text-slate-600 px-1">案件類別</label>
-                                        <select className="w-full rounded-2xl px-4 py-3.5" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                                            <option value="SURVEY">會勘</option>
-                                            <option value="REPLY">回復</option>
-                                            <option value="A1">A1事故</option>
+                                        <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                                            {isSpecialMode ? (
+                                                <>
+                                                    <option value="DIRECTOR">局長案</option>
+                                                    <option value="TEMP">臨時交辦案件</option>
+                                                    <option value="OTHER_SPECIAL">其他(特殊)</option>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <option value="SURVEY">會勘</option>
+                                                    <option value="REPLY">回復</option>
+                                                    <option value="A1">A1事故</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">陳情人</label>
-                                        <input required type="text" className="w-full rounded-2xl px-4 py-3.5" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="陳情人姓名" />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">行政區</label>
-                                        <select className="w-full rounded-2xl px-4 py-3.5" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
-                                            {TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
-                                        <input required type="text" className="w-full rounded-2xl px-4 py-3.5" placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-                                    </div>
-                                    <div className="md:col-span-2 space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">陳情內容</label>
-                                        <textarea required rows="4" className="w-full rounded-3xl px-4 py-4 leading-relaxed" placeholder="簡述案件狀況..." value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})}></textarea>
-                                    </div>
+                                    
+                                    {isSpecialMode ? (
+                                        <>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">交辦時間</label>
+                                                <input required type="date" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.extData.assignDate} onChange={e => handleExtData('assignDate', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label>
+                                                <input required type="date" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.extData.completionDeadline} onChange={e => handleExtData('completionDeadline', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
+                                                <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="負責人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} />
+                                            </div>
+                                            <div className="md:col-span-2 space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">交辦內容</label>
+                                                <textarea required rows="4" className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} placeholder="詳細敘述交辦事項..." value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})}></textarea>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">陳情人</label>
+                                                <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="陳情人姓名" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">行政區</label>
+                                                <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
+                                                    {TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
+                                                <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                                            </div>
+                                            <div className="md:col-span-2 space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">陳情內容</label>
+                                                <textarea required rows="4" className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} placeholder="簡述案件狀況..." value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})}></textarea>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </section>
 
-                            <section>
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-5 px-1">會勘預定資訊</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
-                                        <input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white" placeholder="承辦人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">會勘通知文號</label>
-                                        <input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white" placeholder="輸入文號" value={formData.extData.surveyDocNo} onChange={e => handleExtData('surveyDocNo', e.target.value)} />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
-                                        <input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white" value={formData.extData.surveyDate} 
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                handleExtData('surveyDate', val);
-                                                handleExtData('recordDeadline', calculateWorkingDays(val, 3));
-                                                handleExtData('completionDeadline', calculateMonthsDeadline(val, 2));
-                                            }} />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-indigo-500 px-1 flex items-center gap-1"><Icons.Clock /> 自動計算期限</label>
-                                        <div className="flex gap-2">
-                                            <input type="date" title="取號期限" className="w-1/2 rounded-2xl px-3 py-3.5 bg-indigo-50/50 text-indigo-700 text-xs border border-indigo-100/50" value={formData.extData.recordDeadline} onChange={e => handleExtData('recordDeadline', e.target.value)} />
-                                            <input type="date" title="結案期限" className="w-1/2 rounded-2xl px-3 py-3.5 bg-indigo-50/50 text-indigo-700 text-xs border border-indigo-100/50" value={formData.extData.completionDeadline} onChange={e => handleExtData('completionDeadline', e.target.value)} />
+                            {!isSpecialMode && (
+                                <section>
+                                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-5 px-1">會勘預定資訊</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
+                                            <input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white focus:ring-4 focus:ring-indigo-500/20" placeholder="承辦人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">會勘通知文號</label>
+                                            <input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white focus:ring-4 focus:ring-indigo-500/20" placeholder="輸入文號" value={formData.extData.surveyDocNo} onChange={e => handleExtData('surveyDocNo', e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
+                                            <input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white focus:ring-4 focus:ring-indigo-500/20" value={formData.extData.surveyDate} 
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    handleExtData('surveyDate', val);
+                                                    handleExtData('recordDeadline', calculateWorkingDays(val, 3));
+                                                    handleExtData('completionDeadline', calculateMonthsDeadline(val, 2));
+                                                }} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-indigo-500 px-1 flex items-center gap-1"><Icons.Clock /> 自動計算期限</label>
+                                            <div className="flex gap-2">
+                                                <input type="date" title="取號期限" className="w-1/2 rounded-2xl px-3 py-3.5 bg-indigo-50/50 text-indigo-700 text-xs border border-indigo-100/50" value={formData.extData.recordDeadline} onChange={e => handleExtData('recordDeadline', e.target.value)} />
+                                                <input type="date" title="結案期限" className="w-1/2 rounded-2xl px-3 py-3.5 bg-indigo-50/50 text-indigo-700 text-xs border border-indigo-100/50" value={formData.extData.completionDeadline} onChange={e => handleExtData('completionDeadline', e.target.value)} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </section>
+                                </section>
+                            )}
 
                             <div className="flex gap-4 pt-4">
-                                <button type="submit" disabled={isSubmitting} className={`flex-1 text-white py-4 rounded-2xl font-bold text-lg shadow-float transition-all active:scale-[0.98] ${isSubmitting ? 'bg-slate-300' : 'bg-primary hover:bg-indigo-600'}`}>
+                                <button type="submit" disabled={isSubmitting} className={`flex-1 text-white py-4 rounded-2xl font-bold text-lg shadow-float transition-all active:scale-[0.98] ${isSubmitting ? 'bg-slate-300' : themeBtn}`}>
                                     {isSubmitting ? '處理中...' : '確認立案'}
                                 </button>
                                 <button type="button" onClick={onCancel} className="flex-1 bg-white border-2 border-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-50 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]">
@@ -391,22 +472,40 @@
         const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
-            const [editExtData, setEditExtData] = useState({});
+            
+            // 安全初始化 Edit State 確保所有欄位都不會是 undefined
+            const [editExtData, setEditExtData] = useState({
+                surveyDate: caseData?.extData?.surveyDate || '',
+                recordDeadline: caseData?.extData?.recordDeadline || '',
+                recordActualDate: caseData?.extData?.recordActualDate || '',
+                recordDocNo: caseData?.extData?.recordDocNo || '',
+                surveyResolution: caseData?.extData?.surveyResolution || '',
+                dispatchDate: caseData?.extData?.dispatchDate || '',
+                completionDate: caseData?.extData?.completionDate || '',
+                completionDeadline: caseData?.extData?.completionDeadline || '',
+                noDispatchRequired: caseData?.extData?.noDispatchRequired || false,
+                assignDate: caseData?.extData?.assignDate || '',
+                handlingStatus: caseData?.extData?.handlingStatus || '',
+                assignee: caseData?.extData?.assignee || ''
+            });
+            
+            const isSpecialMode = caseData.caseType === 'SPECIAL';
 
             useEffect(() => {
-                if (caseData?.extData) {
-                    setEditExtData({
-                        surveyDate: caseData.extData.surveyDate || '',
-                        recordDeadline: caseData.extData.recordDeadline || '',
-                        recordActualDate: caseData.extData.recordActualDate || '',
-                        recordDocNo: caseData.extData.recordDocNo || '',
-                        surveyResolution: caseData.extData.surveyResolution || '',
-                        dispatchDate: caseData.extData.dispatchDate || '',
-                        completionDate: caseData.extData.completionDate || '',
-                        completionDeadline: caseData.extData.completionDeadline || '',
-                        noDispatchRequired: caseData.extData.noDispatchRequired || false
-                    });
-                }
+                setEditExtData({
+                    surveyDate: caseData?.extData?.surveyDate || '',
+                    recordDeadline: caseData?.extData?.recordDeadline || '',
+                    recordActualDate: caseData?.extData?.recordActualDate || '',
+                    recordDocNo: caseData?.extData?.recordDocNo || '',
+                    surveyResolution: caseData?.extData?.surveyResolution || '',
+                    dispatchDate: caseData?.extData?.dispatchDate || '',
+                    completionDate: caseData?.extData?.completionDate || '',
+                    completionDeadline: caseData?.extData?.completionDeadline || '',
+                    noDispatchRequired: caseData?.extData?.noDispatchRequired || false,
+                    assignDate: caseData?.extData?.assignDate || '',
+                    handlingStatus: caseData?.extData?.handlingStatus || '',
+                    assignee: caseData?.extData?.assignee || ''
+                });
             }, [caseData]);
 
             const closeM = () => setModalConfig({ isOpen: false });
@@ -437,6 +536,10 @@
                 });
             };
 
+            const themeColor = isSpecialMode ? 'text-red-500' : 'text-primary';
+            const themeBtn = isSpecialMode ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-indigo-600';
+            const themeRing = isSpecialMode ? 'focus:ring-red-500/20' : 'focus:ring-indigo-500/20';
+
             return (
                 <div className="h-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-fade-in pb-20 md:pb-0">
                     <Modal {...modalConfig} />
@@ -444,41 +547,64 @@
                     {/* Left Column: Info */}
                     <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0">
-                            <button onClick={onBack} className="text-slate-400 hover:text-primary flex items-center gap-2 text-sm font-bold mb-6 transition-colors w-fit px-1">
-                                <Icons.ArrowLeft /> 返回列表
-                            </button>
+                            <div className="flex justify-between items-center mb-6">
+                                <button onClick={onBack} className={`hover:${themeColor} text-slate-400 flex items-center gap-2 text-sm font-bold transition-colors w-fit px-1`}>
+                                    <Icons.ArrowLeft /> 返回列表
+                                </button>
+                                <button onClick={delClick} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl transition-colors flex items-center gap-1 text-sm font-bold" title="刪除案件">
+                                    <Icons.Trash /> 刪除
+                                </button>
+                            </div>
                             
                             <div className="flex flex-wrap items-center gap-3 mb-6">
                                 <StatusBadge status={caseData.status} />
                                 <CategoryBadge category={caseData.category} />
-                                <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide">{caseData.location.district}</span>
+                                {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide">{caseData.location.district}</span>}
                             </div>
 
-                            <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">{caseData.location.address}</h2>
-                            <p className="text-slate-400 text-sm font-medium mb-8">陳情人：{caseData.petitioner.name}</p>
+                            {isSpecialMode ? (
+                                <>
+                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">特殊交辦案件</h2>
+                                    <p className="text-slate-400 text-sm font-medium mb-8">負責人：{caseData.extData?.assignee || '未指派'}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">{caseData.location?.address}</h2>
+                                    <p className="text-slate-400 text-sm font-medium mb-8">陳情人：{caseData.petitioner?.name}</p>
+                                </>
+                            )}
 
                             <div className="bg-slate-50/70 p-6 rounded-3xl mb-8">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">陳情內容</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">{isSpecialMode ? '交辦內容' : '陳情內容'}</span>
                                 <p className="text-slate-700 leading-relaxed">{caseData.content}</p>
                             </div>
 
-                            {caseData.extData && (
+                            {isSpecialMode ? (
                                 <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-8">
                                     <div>
-                                        <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
-                                        <span className="font-bold text-slate-700">{caseData.extData.assignee || '尚未指派'}</span>
+                                        <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span>
+                                        <span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span>
                                     </div>
                                     <div>
-                                        <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">通知文號</span>
-                                        <span className="font-bold text-slate-700">{caseData.extData.surveyDocNo || '-'}</span>
+                                        <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span>
+                                        <span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span>
                                     </div>
                                 </div>
+                            ) : (
+                                caseData.extData && (
+                                    <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-8">
+                                        <div>
+                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData.assignee || '尚未指派'}</span>
+                                        </div>
+                                        <div>
+                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">通知文號</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData.surveyDocNo || '-'}</span>
+                                        </div>
+                                    </div>
+                                )
                             )}
                         </div>
-
-                        <button onClick={delClick} className="w-full py-4 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors mt-auto shrink-0 border border-transparent hover:border-red-100">
-                            <Icons.Trash /> 刪除此案件
-                        </button>
                     </div>
 
                     {/* Right Column: Editing & Timeline */}
@@ -490,65 +616,88 @@
                             </h3>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
-                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5" value={editExtData.surveyDate} 
-                                        onChange={e => {
-                                            const val = e.target.value;
-                                            setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, 2)});
-                                        }} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
-                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30" value={editExtData.recordDeadline} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label>
-                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5" value={editExtData.recordActualDate} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label>
-                                    <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5" value={editExtData.recordDocNo} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
-                                </div>
-                                <div className="md:col-span-2 space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label>
-                                    <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed" value={editExtData.surveyResolution} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
-                                </div>
-
-                                {/* Divider */}
-                                <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
-                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30" value={editExtData.completionDeadline} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
-                                </div>
-                                <div className="flex items-center justify-start md:mt-6">
-                                    <label className="flex items-center cursor-pointer group">
-                                        <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
-                                        <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
-                                    </label>
-                                </div>
-                                
-                                {!editExtData.noDispatchRequired && (
+                                {isSpecialMode ? (
                                     <>
-                                        <div className="space-y-1.5 animate-fade-in">
-                                            <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5" value={editExtData.dispatchDate} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
                                         </div>
-                                        <div className="space-y-1.5 animate-fade-in">
-                                            <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5" value={editExtData.completionDate} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">實際結案時間</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
                                         </div>
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
+                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">辦理情形</label>
+                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate || ''} 
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, 2)});
+                                                }} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label>
+                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label>
+                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
+                                        </div>
+
+                                        {/* Divider */}
+                                        <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
+                                        </div>
+                                        <div className="flex items-center justify-start md:mt-6">
+                                            <label className="flex items-center cursor-pointer group">
+                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
+                                                <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
+                                            </label>
+                                        </div>
+                                        
+                                        {!editExtData.noDispatchRequired && (
+                                            <>
+                                                <div className="space-y-1.5 animate-fade-in">
+                                                    <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
+                                                </div>
+                                                <div className="space-y-1.5 animate-fade-in">
+                                                    <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                                </div>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </div>
 
                             {caseData.status !== 'CLOSED' ? (
                                 <div className="mt-8 flex gap-4">
-                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('PENDING')} className="flex-1 py-4 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-2xl font-bold text-base transition-all active:scale-[0.98]">
+                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('PENDING')} className={`flex-1 py-4 ${isSpecialMode ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'} rounded-2xl font-bold text-base transition-all active:scale-[0.98]`}>
                                         {isSubmitting ? '儲存中...' : '僅儲存進度'}
                                     </button>
-                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className="flex-1 py-4 bg-primary hover:bg-indigo-600 text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2">
+                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 py-4 ${themeBtn} text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2`}>
                                         <Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}
                                     </button>
                                 </div>
@@ -585,7 +734,7 @@
         };
 
         const CaseManagementSystem = () => {
-            const [view, setView] = useState('LIST'); 
+            const [view, setView] = useState('LIST'); // LIST | SPECIAL_LIST | CREATE | CREATE_SPECIAL | DETAIL
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
@@ -593,7 +742,9 @@
             useEffect(() => {
                 let unsubscribe = null;
                 const initStandaloneFirebase = async () => {
-                    const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc } = window.FirebaseModules;
+                    const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
+                    
+                    // 強制使用您專屬的 Firebase 金鑰，完全忽略平台的預設環境
                     const myFirebaseConfig = {
                         apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y",
                         authDomain: "case-data-b9894.firebaseapp.com",
@@ -606,18 +757,29 @@
 
                     try {
                         if (!window.fbStandaloneApp) {
-                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "StandaloneApp");
+                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "UserApp" + Date.now());
                             window.fbStandaloneDb = getFirestore(window.fbStandaloneApp);
+                            window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
 
+                        // 因為是連接您自己的資料庫，一律使用匿名登入
+                        await signInAnonymously(window.fbAuth);
+
                         const db = window.fbStandaloneDb;
-                        const casesRef = collection(db, 'my_cases');
-                        const metaRef = doc(db, 'my_meta', 'seed_status');
+
+                        // 直接讀寫您的雲端根目錄集合 (my_cases)
+                        window.getDbCol = (dbInstance, colName) => collection(dbInstance, colName);
+                        window.getDbDoc = (dbInstance, colName, docId) => doc(dbInstance, colName, docId);
+
+                        const casesRef = window.getDbCol(db, 'my_cases');
+                        const metaRef = window.getDbDoc(db, 'my_meta', 'seed_status');
 
                         const metaSnap = await getDoc(metaRef);
                         if (!metaSnap.exists()) {
                             await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
-                            // Seed initial mock case only if db is empty
+                            for (const c of initialCases) { 
+                                await setDoc(window.getDbDoc(db, 'my_cases', c.id), c); 
+                            }
                         }
 
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
@@ -628,9 +790,11 @@
                         }, (e) => console.warn(e.message));
 
                     } catch(e) {
+                        console.warn("Firebase 離線備援:", e.message);
                         window.fbStandaloneDb = null;
                         const localData = localStorage.getItem('cases_backup');
                         if (localData) setCases(JSON.parse(localData));
+                        else { setCases(initialCases); localStorage.setItem('cases_backup', JSON.stringify(initialCases)); }
                     }
                 };
 
@@ -692,48 +856,79 @@
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, dismissedMonthNotice: true } };
-                try {
-                    if (window.fbStandaloneDb) await window.FirebaseModules.setDoc(window.FirebaseModules.doc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
-                    else setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
-                } catch (err) { console.warn(err); }
+                
+                // 樂觀更新：畫面先無縫變更
+                setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
+                
+                // 背景同步 Firebase
+                if (window.fbStandaloneDb && window.getDbDoc) {
+                    try {
+                        const { setDoc } = window.FirebaseModules;
+                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase).catch(err => console.warn(err));
+                    } catch (err) { console.warn(err); }
+                }
             };
 
             const handleCreateCase = async (newCase) => {
-                try {
-                    const caseId = Date.now().toString();
-                    const caseRecord = {
-                        id: caseId, caseNumber: newCase.caseNumber, category: newCase.category, 
-                        petitioner: { name: newCase.name }, location: { district: newCase.district, address: newCase.address },
-                        content: newCase.content, status: 'PENDING', createdAt: new Date().toLocaleString(),
-                        history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
-                        extData: newCase.extData
-                    };
-                    if (window.fbStandaloneDb) await window.FirebaseModules.setDoc(window.FirebaseModules.doc(window.fbStandaloneDb, 'my_cases', caseId), caseRecord);
-                    else setCases([caseRecord, ...cases]);
-                    setView('LIST'); setActiveListTab('PROCESSING'); 
-                } catch (err) { console.warn(err); }
+                const caseId = Date.now().toString();
+                const caseRecord = {
+                    id: caseId, caseNumber: newCase.caseNumber, category: newCase.category, caseType: newCase.caseType,
+                    petitioner: { name: newCase.name, phone: newCase.phone, email: newCase.email }, location: { district: newCase.district, address: newCase.address },
+                    content: newCase.content, status: 'PENDING', createdAt: new Date().toLocaleString(),
+                    history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
+                    extData: newCase.extData
+                };
+
+                // 樂觀更新：畫面先無縫變更，不再等待網路回應
+                setCases(prev => [caseRecord, ...prev]);
+                setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
+                setActiveListTab('PROCESSING'); 
+
+                // 背景同步 Firebase
+                if (window.fbStandaloneDb && window.getDbDoc) {
+                    try {
+                        const { setDoc } = window.FirebaseModules;
+                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), caseRecord).catch(err => console.warn(err));
+                    } catch (err) { console.warn(err); }
+                }
             };
 
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
-                try {
-                    const caseToUpdate = cases.find(c => c.id === id);
-                    if (!caseToUpdate) return;
-                    let updatedHistory = caseToUpdate.history;
-                    if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '系統', content: replyText, type: 'STAFF' }];
-                    const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
-                    
-                    if (window.fbStandaloneDb) await window.FirebaseModules.setDoc(window.FirebaseModules.doc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
-                    else setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
-                    setSelectedCase(updatedCase);
-                } catch (err) { console.warn(err); }
+                const caseToUpdate = cases.find(c => c.id === id);
+                if (!caseToUpdate) return;
+                let updatedHistory = caseToUpdate.history;
+                if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '系統', content: replyText, type: 'STAFF' }];
+                const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
+                
+                // 樂觀更新：畫面先無縫變更
+                setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
+                setSelectedCase(updatedCase);
+
+                // 背景同步 Firebase
+                if (window.fbStandaloneDb && window.getDbDoc) {
+                    try {
+                        const { setDoc } = window.FirebaseModules;
+                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase).catch(err => console.warn(err));
+                    } catch (err) { console.warn(err); }
+                }
             };
 
             const handleDeleteCase = async (id) => {
-                try {
-                    if (window.fbStandaloneDb) await window.FirebaseModules.deleteDoc(window.FirebaseModules.doc(window.fbStandaloneDb, 'my_cases', id));
-                    else setCases(prevCases => prevCases.filter(c => c.id !== id));
-                    setSelectedCase(null); setView('LIST');
-                } catch (err) { console.warn(err); }
+                const deletedCase = cases.find(c => c.id === id);
+                const returnView = deletedCase?.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST';
+                
+                // 樂觀更新：畫面先無縫變更
+                setCases(prevCases => prevCases.filter(c => c.id !== id));
+                setSelectedCase(null); 
+                setView(returnView);
+
+                // 背景同步 Firebase
+                if (window.fbStandaloneDb && window.getDbDoc) {
+                    try {
+                        const { deleteDoc } = window.FirebaseModules;
+                        deleteDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id)).catch(err => console.warn(err));
+                    } catch (err) { console.warn(err); }
+                }
             };
 
             const totalNotices = overdueCases.length + closingNotices.length;
@@ -749,14 +944,20 @@
                             <h1 className="text-2xl font-black tracking-tight text-slate-800">列管案件管理</h1>
                             <div className="text-xs mt-2 text-slate-400 font-bold uppercase tracking-widest">交管系統</div>
                         </div>
-                        <nav className="flex-1 p-5 space-y-2 mt-4">
+                        <nav className="flex-1 p-5 space-y-3 mt-2">
                             <button onClick={() => setView('LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'LIST' ? 'bg-indigo-50 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
                                 <Icons.List /> 案件清單
                             </button>
+                            <button onClick={() => setView('SPECIAL_LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'SPECIAL_LIST' ? 'bg-red-500 text-white shadow-md' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}>
+                                <Icons.Alert /> 特殊交辦案件
+                            </button>
                         </nav>
-                        <div className="p-6 pb-8">
+                        <div className="p-6 pb-8 space-y-3">
                              <button onClick={() => setView('CREATE')} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95">
-                                <Icons.Plus /> 新增案件
+                                <Icons.Plus /> 新增一般案件
+                            </button>
+                            <button onClick={() => setView('CREATE_SPECIAL')} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95">
+                                <Icons.Star /> 新增特殊交辦
                             </button>
                         </div>
                     </aside>
@@ -766,11 +967,11 @@
                         <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'LIST' ? 'text-primary bg-indigo-50' : 'text-slate-400'}`}>
                             <Icons.List />
                         </button>
-                        <button onClick={() => setView('CREATE')} className="flex flex-col items-center p-4 -mt-10 rounded-full bg-slate-800 text-white shadow-float active:scale-95 transition-transform border-4 border-surface">
-                            <Icons.Plus />
+                        <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-600 bg-red-50' : 'text-red-400'}`}>
+                            <Icons.Alert />
                         </button>
-                        <button className="flex flex-col items-center p-3 rounded-2xl text-slate-300">
-                            <Icons.User />
+                        <button onClick={() => setView(view === 'SPECIAL_LIST' ? 'CREATE_SPECIAL' : 'CREATE')} className={`flex flex-col items-center p-4 -mt-10 rounded-full text-white shadow-float active:scale-95 transition-transform border-4 border-surface ${view === 'SPECIAL_LIST' ? 'bg-red-600' : 'bg-slate-800'}`}>
+                            <Icons.Plus />
                         </button>
                     </div>
 
@@ -780,8 +981,10 @@
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">
                                 {view === 'LIST' && '案件清單總覽'}
-                                {view === 'CREATE' && '建立新案件'}
-                                {view === 'DETAIL' && '案件處理進度'}
+                                {view === 'SPECIAL_LIST' && '特殊交辦清單'}
+                                {view === 'CREATE' && '建立一般案件'}
+                                {view === 'CREATE_SPECIAL' && '建立特殊交辦'}
+                                {view === 'DETAIL' && (selectedCase?.caseType === 'SPECIAL' ? '特殊交辦處理進度' : '案件處理進度')}
                             </h2>
                             <div className="flex items-center gap-4">
                                 <div className="relative">
@@ -809,7 +1012,7 @@
                                                             {overdueCases.map(c => (
                                                                 <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-rose-50/30 cursor-pointer transition-colors group">
                                                                     <div className="font-bold text-slate-800 text-sm group-hover:text-rose-600 transition-colors mb-2 leading-snug">
-                                                                        {c.location.district} - {c.location.address}
+                                                                        {c.location?.district} - {c.location?.address}
                                                                     </div>
                                                                     <div className="text-xs flex justify-between items-center">
                                                                         <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.recordDeadline}</span>
@@ -835,7 +1038,7 @@
                                                                         <button onClick={(e) => dismissClosingNotice(e, c.id)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full w-7 h-7 flex items-center justify-center font-bold transition-colors z-10">✕</button>
                                                                     )}
                                                                     <div className="font-bold text-slate-800 text-sm group-hover:text-amber-600 transition-colors pr-8 mb-2 leading-snug">
-                                                                        {c.location.district} - {c.location.address}
+                                                                        {c.location?.district} - {c.location?.address}
                                                                     </div>
                                                                     <div className="text-xs flex justify-between items-center">
                                                                         <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.completionDeadline}</span>
@@ -863,9 +1066,11 @@
                         </header>
 
                         <div className="flex-1 px-4 md:px-10 pb-4 md:pb-10 overflow-hidden flex flex-col">
-                            {view === 'LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} />}
-                            {view === 'CREATE' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('LIST')} />}
-                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView('LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} />}
+                            {view === 'LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={false} />}
+                            {view === 'SPECIAL_LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={true} />}
+                            {view === 'CREATE' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('LIST')} isSpecialMode={false} />}
+                            {view === 'CREATE_SPECIAL' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('SPECIAL_LIST')} isSpecialMode={true} />}
+                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} />}
                         </div>
                     </main>
                 </div>
