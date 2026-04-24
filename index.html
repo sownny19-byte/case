@@ -72,12 +72,20 @@
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
 
         // --- Helper Functions ---
-        // 自動計算期限 (預設 +7 天)
-        const calculateDeadline = (dateStr, days = 7) => {
+        // 自動計算工作日期限 (預設 +3 個工作日，自動跳過週六、週日)
+        const calculateWorkingDays = (dateStr, addDays = 3) => {
             if (!dateStr) return '';
             const d = new Date(dateStr);
             if (isNaN(d.getTime())) return '';
-            d.setDate(d.getDate() + days);
+            
+            let daysAdded = 0;
+            while (daysAdded < addDays) {
+                d.setDate(d.getDate() + 1);
+                // 0 是週日，6 是週六。只有平日才計入工作日
+                if (d.getDay() !== 0 && d.getDay() !== 6) {
+                    daysAdded++;
+                }
+            }
             return d.toISOString().split('T')[0];
         };
 
@@ -103,67 +111,10 @@
                 if (data.error) throw new Error(data.error.message);
                 return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成內容";
             } catch (error) {
-                console.warn("Gemini API Error:", error);
+                console.error("Gemini API Error:", error);
                 return "AI 服務連線失敗。";
             }
         };
-
-        // --- Mock Data (For Initial DB Seeding) ---
-        const initialCases = [
-            {
-                id: '1',
-                caseNumber: 'TY-20231027-001',
-                petitioner: { name: '王小明', phone: '0912-345-678', email: 'wang@example.com' },
-                location: { district: '桃園區', address: '縣府路1號' },
-                content: '市政府門口路燈閃爍，影響行車安全，請盡快修繕。',
-                status: 'PENDING',
-                category: 'SIGNAL',
-                createdAt: '2023-10-27 10:00',
-                history: [{ date: '2023-10-27 10:00', author: '王小明 (民眾)', content: '案件建立', type: 'USER' }],
-                extData: {}
-            },
-            {
-                id: '2',
-                caseNumber: 'TY-20231026-005',
-                petitioner: { name: '李春嬌', phone: '', email: 'li_chun@example.com' },
-                location: { district: '中壢區', address: '中正路與延平路口' },
-                content: '中正路水溝蓋發出惡臭，似乎有堵塞情況。',
-                status: 'UNSATISFIED',
-                category: 'SIGN', 
-                createdAt: '2023-10-26 14:30',
-                history: [
-                    { date: '2023-10-26 14:30', author: '李春嬌 (民眾)', content: '案件建立', type: 'USER' },
-                    { date: '2023-10-27 09:00', author: '承辦人員', content: '第一階段回覆：已派員勘查。', type: 'STAFF' }
-                ],
-                extData: {
-                    surveyDate: '2023-10-27', 
-                    surveyDocNo: '桃交字第112000123號', 
-                    assignee: '陳專員',
-                    recordDeadline: '2023-11-05', // 模擬已逾期的取號期限
-                    recordActualDate: '' // 尚未填寫實際日期，會觸發通知
-                }
-            },
-            {
-                id: '3',
-                caseNumber: 'TY-20231025-012',
-                petitioner: { name: '陳志豪', phone: '0988-777-666', email: '' },
-                location: { district: '龜山區', address: '文化一路250號' },
-                content: '公車指示牌脫落，請協助修復。',
-                status: 'CLOSED',
-                category: 'SIGN',
-                createdAt: '2023-10-25 08:15',
-                history: [
-                    { date: '2023-10-25 08:15', author: '陳志豪 (民眾)', content: '案件建立', type: 'USER' },
-                    { date: '2023-10-28 16:00', author: '承辦人員', content: '更新案件資訊並結案', type: 'STAFF' }
-                ],
-                extData: {
-                    surveyDate: '2023-10-26',
-                    dispatchDate: '2023-10-26', 
-                    completionDate: '2023-10-28', 
-                    surveyResolution: '補強鎖固'
-                }
-            }
-        ];
 
         // --- Icons (SVG Components) ---
         const Icons = {
@@ -365,7 +316,6 @@
         // 2. Create Case Form
         const CaseForm = ({ onSubmit, onCancel, systemType }) => {
             const isCouncilor = systemType === 'COUNCILOR';
-            const [isSubmitting, setIsSubmitting] = useState(false);
             
             const [formData, setFormData] = useState({
                 caseNumber: isCouncilor ? `COUNCIL-${Date.now()}` : '',
@@ -404,16 +354,9 @@
                 }));
             };
 
-            const handleSubmit = async (e) => {
+            const handleSubmit = (e) => {
                 e.preventDefault();
-                setIsSubmitting(true);
-                try {
-                    await onSubmit(formData);
-                } catch (error) {
-                    console.warn(error);
-                } finally {
-                    setIsSubmitting(false);
-                }
+                onSubmit(formData);
             };
 
             return (
@@ -521,7 +464,7 @@
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     handleExtDataChange('surveyDate', val);
-                                                    handleExtDataChange('recordDeadline', calculateDeadline(val));
+                                                    handleExtDataChange('recordDeadline', calculateWorkingDays(val, 3));
                                                 }} 
                                             />
                                         </div>
@@ -540,9 +483,7 @@
                             )}
 
                             <div className="pt-6 flex gap-4 border-t mt-6">
-                                <button type="submit" disabled={isSubmitting} className={`flex-1 text-white py-3 rounded-lg font-bold text-lg shadow-md transition-transform active:scale-95 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                    {isSubmitting ? '處理中...' : '確認立案'}
-                                </button>
+                                <button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold text-lg shadow-md transition-transform active:scale-95">確認立案</button>
                                 <button type="button" onClick={onCancel} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-bold text-lg transition-transform active:scale-95">取消</button>
                             </div>
                         </form>
@@ -558,7 +499,6 @@
             const [isGenerating, setIsGenerating] = useState(false);
             const [aiSummary, setAiSummary] = useState(null);
             const [errorMsg, setErrorMsg] = useState('');
-            const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', content: '', actions: null });
             
             const [editExtData, setEditExtData] = useState({
@@ -587,33 +527,19 @@
 
             const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
-            const handleReply = async (stage) => {
+            const handleReply = (stage) => {
                 if(!replyContent && stage !== 'CLOSED') {
                     setErrorMsg('⚠️ 請先輸入回覆內容才能送出');
                     return;
                 }
                 setErrorMsg('');
-                setIsSubmitting(true);
-                try {
-                    await onUpdateStatus(caseData.id, stage, replyContent || '案件結案 (無回覆內容)');
-                    setReplyContent('');
-                } catch (e) {
-                    console.warn(e);
-                } finally {
-                    setIsSubmitting(false);
-                }
+                onUpdateStatus(caseData.id, stage, replyContent || '案件結案 (無回覆內容)');
+                setReplyContent('');
             };
 
-            const handleExtDataReply = async (stage) => {
-                setIsSubmitting(true);
-                try {
-                    const actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
-                    await onUpdateStatus(caseData.id, stage, actionText, editExtData);
-                } catch(e) {
-                    console.warn(e);
-                } finally {
-                    setIsSubmitting(false);
-                }
+            const handleExtDataReply = (stage) => {
+                const actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
+                onUpdateStatus(caseData.id, stage, actionText, editExtData);
             };
 
             const handleDeleteClick = () => {
@@ -624,10 +550,7 @@
                     actions: (
                         <div className="flex gap-2 mt-4">
                             <button onClick={closeModal} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">取消</button>
-                            <button onClick={async () => { 
-                                closeModal(); 
-                                await onDelete(caseData.id); 
-                            }} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">確認刪除</button>
+                            <button onClick={() => { onDelete(caseData.id); closeModal(); }} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">確認刪除</button>
                         </div>
                     )
                 });
@@ -751,7 +674,7 @@
                         </div>
                         
                         <div className="mt-auto pt-8">
-                             <button disabled={isSubmitting} onClick={handleDeleteClick} className={`w-full hover:bg-red-50 px-4 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold transition-colors border border-transparent hover:border-red-200 ${isSubmitting ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700'}`}>
+                             <button onClick={handleDeleteClick} className="w-full text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold transition-colors border border-transparent hover:border-red-200">
                                 <Icons.Trash /> 刪除案件
                             </button>
                         </div>
@@ -794,7 +717,7 @@
                                                         setEditExtData({
                                                             ...editExtData, 
                                                             surveyDate: val,
-                                                            recordDeadline: calculateDeadline(val)
+                                                            recordDeadline: calculateWorkingDays(val, 3)
                                                         });
                                                     }} 
                                                 />
@@ -828,11 +751,11 @@
                                             </div>
                                         </div>
                                         <div className="mt-5 flex gap-3 flex-wrap">
-                                            <button disabled={isSubmitting} onClick={() => handleExtDataReply('PENDING')} className={`flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}>
-                                                {isSubmitting ? '儲存中...' : '儲存資料'}
+                                            <button onClick={() => handleExtDataReply('PENDING')} className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-bold shadow-md transition-transform active:scale-95">
+                                                儲存資料
                                             </button>
-                                            <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
-                                                <Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}
+                                            <button onClick={() => handleExtDataReply('CLOSED')} className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1">
+                                                <Icons.Check /> 儲存並結案
                                             </button>
                                         </div>
                                     </>
@@ -855,11 +778,11 @@
                                             {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
                                         </div>
                                         <div className="mt-4 flex gap-3 flex-wrap">
-                                            <button disabled={isSubmitting} onClick={() => handleReply('PENDING')} className={`flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                                {isSubmitting ? '處理中...' : '送出辦理紀錄'}
+                                            <button onClick={() => handleReply('PENDING')} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold shadow-md transition-transform active:scale-95">
+                                                送出辦理紀錄
                                             </button>
-                                            <button disabled={isSubmitting} onClick={() => handleReply('CLOSED')} className={`flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
-                                                <Icons.Check /> {isSubmitting ? '處理中...' : '直接結案'}
+                                            <button onClick={() => handleReply('CLOSED')} className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1">
+                                                <Icons.Check /> 直接結案
                                             </button>
                                         </div>
                                     </>
@@ -972,24 +895,11 @@
                             loadedCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                             setCases(loadedCases);
                         }, (error) => {
-                            console.warn("Firestore 監聽提示 (若在預覽環境可忽略):", error.message);
+                            console.error("Firestore error:", error);
                         });
 
                     } catch(e) {
-                        if (e.message && e.message.includes('offline')) {
-                            console.warn("提示：目前處於預覽環境或網路離線，無法連線 Firebase。已自動退回 LocalStorage 模式，部署至 Netlify 後即可正常連線。");
-                        } else {
-                            console.warn("Firebase 初始化或連線失敗，退回 LocalStorage 模式:", e.message);
-                        }
-                        
-                        window.fbStandaloneDb = null; // Ensure fallback works
-                        const localData = localStorage.getItem('cases_backup');
-                        if (localData) {
-                            setCases(JSON.parse(localData));
-                        } else {
-                            setCases(initialCases);
-                            localStorage.setItem('cases_backup', JSON.stringify(initialCases));
-                        }
+                        console.error("Firebase 初始化失敗:", e);
                     }
                 };
 
@@ -1009,7 +919,7 @@
 
             // 備用方案：當案件變動時，同步存入 LocalStorage
             useEffect(() => {
-                if (!window.fbStandaloneDb && cases.length > 0) {
+                if (cases.length > 0) {
                     localStorage.setItem('cases_backup', JSON.stringify(cases));
                 }
             }, [cases]);
@@ -1052,98 +962,86 @@
                     if (c.extData.recordActualDate) return false; 
                     
                     const deadline = new Date(c.extData.recordDeadline);
-                    return today > deadline; 
+                    deadline.setHours(0, 0, 0, 0); // 歸零時間，純比對日期
+                    return today >= deadline; // 包含期限當天與逾期
+                }).map(c => {
+                    const deadline = new Date(c.extData.recordDeadline);
+                    deadline.setHours(0, 0, 0, 0);
+                    // 加上 isToday 旗標，讓 UI 區分「今日到期」與「已逾期」
+                    return { ...c, isToday: today.getTime() === deadline.getTime() };
                 });
             }, [cases, systemType]);
 
             const handleCreateCase = async (newCase) => {
-                try {
-                    const caseId = Date.now().toString();
-                    const caseRecord = {
-                        id: caseId,
-                        caseNumber: newCase.caseNumber,
-                        category: newCase.category, 
-                        petitioner: { name: newCase.name, phone: newCase.phone, email: newCase.email },
-                        location: { district: newCase.district, address: newCase.address },
-                        content: newCase.content,
-                        status: 'PENDING',
-                        createdAt: new Date().toLocaleString(),
-                        history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
-                        extData: newCase.extData
-                    };
-                    
-                    if (window.fbStandaloneDb) {
-                        const { doc, setDoc } = window.FirebaseModules;
-                        const caseRef = doc(window.fbStandaloneDb, 'my_cases', caseId);
-                        await setDoc(caseRef, caseRecord);
-                    } else {
-                        setCases([caseRecord, ...cases]);
-                    }
-
-                    setView('LIST');
-                    setActiveListTab('PROCESSING'); 
-                } catch (err) {
-                    console.warn(err);
-                    alert(`儲存備用方案啟動。因環境限制，請將系統部署後即可正常寫入資料庫。\n(${err.message})`);
+                const caseId = Date.now().toString();
+                const caseRecord = {
+                    id: caseId,
+                    caseNumber: newCase.caseNumber,
+                    category: newCase.category, 
+                    petitioner: { name: newCase.name, phone: newCase.phone, email: newCase.email },
+                    location: { district: newCase.district, address: newCase.address },
+                    content: newCase.content,
+                    status: 'PENDING',
+                    createdAt: new Date().toLocaleString(),
+                    history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
+                    extData: newCase.extData
+                };
+                
+                if (window.fbStandaloneDb) {
+                    const { doc, setDoc } = window.FirebaseModules;
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', caseId);
+                    await setDoc(caseRef, caseRecord);
+                } else {
                     setCases([caseRecord, ...cases]);
-                    setView('LIST');
-                    setActiveListTab('PROCESSING');
                 }
+
+                setView('LIST');
+                setActiveListTab('PROCESSING'); 
             };
 
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
-                try {
-                    const caseToUpdate = cases.find(c => c.id === id);
-                    if (!caseToUpdate) return;
+                const caseToUpdate = cases.find(c => c.id === id);
+                if (!caseToUpdate) return;
 
-                    let updatedHistory = caseToUpdate.history;
-                    if (replyText) {
-                        const newHistory = {
-                            date: new Date().toLocaleString(),
-                            author: '承辦人員',
-                            content: replyText,
-                            type: 'STAFF'
-                        };
-                        updatedHistory = [...caseToUpdate.history, newHistory];
-                    }
-
-                    const updatedCase = {
-                        ...caseToUpdate,
-                        status: newStatus,
-                        history: updatedHistory,
-                        extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData
+                let updatedHistory = caseToUpdate.history;
+                if (replyText) {
+                    const newHistory = {
+                        date: new Date().toLocaleString(),
+                        author: '承辦人員',
+                        content: replyText,
+                        type: 'STAFF'
                     };
-
-                    if (window.fbStandaloneDb) {
-                        const { doc, setDoc } = window.FirebaseModules;
-                        const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
-                        await setDoc(caseRef, updatedCase);
-                    } else {
-                        setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
-                    }
-                    
-                    setSelectedCase(updatedCase);
-                } catch (err) {
-                    console.warn(err);
-                    alert(`更新失敗：請確認您的網路連線與資料庫權限。\n(${err.message})`);
+                    updatedHistory = [...caseToUpdate.history, newHistory];
                 }
+
+                const updatedCase = {
+                    ...caseToUpdate,
+                    status: newStatus,
+                    history: updatedHistory,
+                    extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData
+                };
+
+                if (window.fbStandaloneDb) {
+                    const { doc, setDoc } = window.FirebaseModules;
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
+                    await setDoc(caseRef, updatedCase);
+                } else {
+                    setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
+                }
+                
+                setSelectedCase(updatedCase);
             };
 
             const handleDeleteCase = async (id) => {
-                try {
-                    if (window.fbStandaloneDb) {
-                        const { doc, deleteDoc } = window.FirebaseModules;
-                        const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
-                        await deleteDoc(caseRef);
-                    } else {
-                        setCases(prevCases => prevCases.filter(c => c.id !== id));
-                    }
-                    setSelectedCase(null);
-                    setView('LIST');
-                } catch (err) {
-                    console.warn(err);
-                    alert(`刪除失敗：請確認您的網路連線與資料庫權限。\n(${err.message})`);
+                if (window.fbStandaloneDb) {
+                    const { doc, deleteDoc } = window.FirebaseModules;
+                    const caseRef = doc(window.fbStandaloneDb, 'my_cases', id);
+                    await deleteDoc(caseRef);
+                } else {
+                    setCases(prevCases => prevCases.filter(c => c.id !== id));
                 }
+                setSelectedCase(null);
+                setView('LIST');
             };
 
             const handleSelectCase = (c) => {
@@ -1223,7 +1121,7 @@
                                                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in origin-top-right">
                                                     <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex justify-between items-center">
                                                         <h3 className="font-bold text-red-800 text-sm flex items-center gap-2">
-                                                            <Icons.Alert /> 逾期未取號案件 ({overdueCases.length})
+                                                            <Icons.Alert /> 待處理/逾期取號案件 ({overdueCases.length})
                                                         </h3>
                                                     </div>
                                                     <div className="max-h-80 overflow-y-auto">
@@ -1244,7 +1142,7 @@
                                                                     </div>
                                                                     <div className="text-xs text-gray-500 mt-2 flex justify-between items-center">
                                                                         <span className="bg-gray-100 px-2 py-1 rounded text-gray-600">期限: {c.extData.recordDeadline}</span>
-                                                                        <span className="text-red-600 font-bold flex items-center gap-1"><Icons.Alert /> 已逾期</span>
+                                                                        <span className={`${c.isToday ? 'text-orange-500' : 'text-red-600'} font-bold flex items-center gap-1`}><Icons.Alert /> {c.isToday ? '今日到期' : '已逾期'}</span>
                                                                     </div>
                                                                 </div>
                                                             ))
