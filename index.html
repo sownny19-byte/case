@@ -728,8 +728,7 @@
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
-            const [syncStatus, setSyncStatus] = useState('CONNECTING'); // CONNECTING | SYNCED | ERROR
-            const [isDataLoaded, setIsDataLoaded] = useState(false);
+            const [syncStatus, setSyncStatus] = useState('CONNECTING');
 
             useEffect(() => {
                 let unsubscribe = null;
@@ -752,11 +751,7 @@
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
 
-                        try {
-                            await signInAnonymously(window.fbAuth);
-                        } catch (authErr) {
-                            console.warn("⚠️ 匿名登入失敗，以未登入狀態繼續:", authErr.message);
-                        }
+                        try { await signInAnonymously(window.fbAuth); } catch (e) {}
 
                         const db = window.fbStandaloneDb;
                         window.getDbCol = (dbInstance, colName) => collection(dbInstance, colName);
@@ -770,9 +765,7 @@
                             if (!metaSnap.exists()) {
                                 await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
                             }
-                        } catch (metaErr) {
-                            console.warn("⚠️ 初始檢查失敗，跳過檢查:", metaErr.message);
-                        }
+                        } catch (e) {}
 
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
                             const loadedCases = [];
@@ -780,22 +773,17 @@
                             loadedCases.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                             setCases(loadedCases);
                             setSyncStatus('SYNCED');
-                            setIsDataLoaded(true);
                         }, (e) => {
-                            console.error("❌ Firebase 資料庫監聽失敗:", e.message);
                             setSyncStatus('ERROR');
                             const localData = localStorage.getItem('cases_backup');
                             if (localData) setCases(JSON.parse(localData));
-                            setIsDataLoaded(true);
                         });
 
                     } catch(e) {
-                        console.error("Firebase 初始化錯誤:", e.message);
                         setSyncStatus('ERROR');
                         window.fbStandaloneDb = null;
                         const localData = localStorage.getItem('cases_backup');
                         if (localData) setCases(JSON.parse(localData));
-                        setIsDataLoaded(true);
                     }
                 };
 
@@ -807,10 +795,8 @@
             }, []);
 
             useEffect(() => {
-                if (isDataLoaded) {
-                    localStorage.setItem('cases_backup', JSON.stringify(cases));
-                }
-            }, [cases, isDataLoaded]);
+                localStorage.setItem('cases_backup', JSON.stringify(cases));
+            }, [cases]);
 
             const config = useMemo(() => ({
                 tabs: [
@@ -859,41 +845,53 @@
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, dismissedMonthNotice: true } };
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); // Strip undefined
                 
-                setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
+                setCases(prev => prev.map(c => c.id === id ? cleanCase : c));
                 
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
-                    } catch (err) { 
-                        console.error("Firebase 寫入失敗:", err);
-                        alert("⚠️ 取消通知失敗！請檢查 Firebase 權限。");
-                    }
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
+                    } catch (err) {}
                 }
             };
 
             const handleCreateCase = async (newCase) => {
                 const caseId = Date.now().toString();
                 const caseRecord = {
-                    id: caseId, caseNumber: newCase.caseNumber, category: newCase.category, caseType: newCase.caseType,
-                    petitioner: { name: newCase.name, phone: newCase.phone, email: newCase.email }, location: { district: newCase.district, address: newCase.address },
-                    content: newCase.content, status: 'PENDING', createdAt: new Date().toLocaleString(),
+                    id: caseId, 
+                    caseNumber: newCase.caseNumber || `CASE-${caseId}`, 
+                    category: newCase.category || 'OTHER', 
+                    caseType: newCase.caseType || 'NORMAL',
+                    petitioner: { 
+                        name: newCase.name || '', 
+                        phone: newCase.phone || '', 
+                        email: newCase.email || '' 
+                    }, 
+                    location: { 
+                        district: newCase.district || '', 
+                        address: newCase.address || '' 
+                    },
+                    content: newCase.content || '', 
+                    status: 'PENDING', 
+                    createdAt: new Date().toLocaleString(),
                     history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
-                    extData: newCase.extData
+                    extData: newCase.extData || {}
                 };
+                
+                const cleanRecord = JSON.parse(JSON.stringify(caseRecord)); // Strip undefined to prevent Firebase crash
 
-                setCases(prev => [caseRecord, ...prev]);
+                setCases(prev => [cleanRecord, ...prev]);
                 setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
                 setActiveListTab('PROCESSING'); 
 
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), caseRecord);
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), cleanRecord);
                     } catch (err) { 
-                        console.error("Firebase 寫入失敗:", err);
-                        alert("⚠️ 雲端同步失敗！資料已暫存本機。\n請前往 Firebase 後台 -> Firestore Database -> Rules，將規則改為 allow read, write: if true;");
+                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
                     }
                 }
             };
@@ -905,16 +903,17 @@
                 if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '系統', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
                 
-                setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
-                setSelectedCase(updatedCase);
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); // Strip undefined to prevent Firebase crash
+
+                setCases(prevCases => prevCases.map(c => c.id === id ? cleanCase : c));
+                setSelectedCase(cleanCase);
 
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
                     } catch (err) { 
-                        console.error("Firebase 寫入失敗:", err);
-                        alert("⚠️ 雲端同步失敗！變更已暫存本機。\n請前往 Firebase 後台檢查 Rules 設定。");
+                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
                     }
                 }
             };
@@ -932,8 +931,7 @@
                         const { deleteDoc } = window.FirebaseModules;
                         await deleteDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id));
                     } catch (err) { 
-                        console.error("Firebase 刪除失敗:", err);
-                        alert("⚠️ 雲端刪除失敗！僅於本機移除。\n請前往 Firebase 後台檢查 Rules 設定。");
+                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
                     }
                 }
             };
@@ -995,9 +993,9 @@
                             </h2>
                             <div className="flex items-center gap-4">
                                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">
-                                    {syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">雲端連線中...</span></>}
+                                    {syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}
                                     {syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}
-                                    {syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (權限阻擋)</span></>}
+                                    {syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (被阻擋)</span></>}
                                 </div>
                                 <div className="relative">
                                     <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}>
