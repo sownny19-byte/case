@@ -105,6 +105,14 @@
             return d.toISOString().split('T')[0];
         };
 
+        const sortCases = (casesList) => {
+            return [...casesList].sort((a, b) => {
+                const dateA = a.caseType === 'SPECIAL' ? (a.extData?.assignDate || a.createdAt) : (a.extData?.surveyDate || a.createdAt);
+                const dateB = b.caseType === 'SPECIAL' ? (b.extData?.assignDate || b.createdAt) : (b.extData?.surveyDate || b.createdAt);
+                return new Date(dateB || 0) - new Date(dateA || 0);
+            });
+        };
+
         const initialCases = [];
 
         const Icons = {
@@ -122,6 +130,7 @@
             Folder: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
             Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
+            Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
         };
 
         const Modal = ({ isOpen, title, content, actions }) => {
@@ -460,11 +469,15 @@
             );
         };
 
-        const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete }) => {
+        const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete, onEditHistory }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
             
             const isSpecialMode = caseData.caseType === 'SPECIAL';
+
+            // 歷程修改 State
+            const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
+            const [editingHistoryContent, setEditingHistoryContent] = useState('');
 
             const [editExtData, setEditExtData] = useState({
                 surveyDate: caseData.extData?.surveyDate || '',
@@ -503,8 +516,19 @@
             const handleExtDataReply = async (stage) => {
                 setIsSubmitting(true);
                 try {
-                    const actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
-                    await onUpdateStatus(caseData.id, stage, actionText, editExtData);
+                    let actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
+                    let dataToSave = { ...editExtData };
+                    
+                    if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
+                        actionText = `【辦理情形】${editExtData.handlingStatus}`;
+                        dataToSave.handlingStatus = ''; // 清空輸入框作為下一次進度更新用
+                    }
+                    
+                    await onUpdateStatus(caseData.id, stage, actionText, dataToSave);
+                    
+                    if (isSpecialMode) {
+                        setEditExtData(prev => ({ ...prev, handlingStatus: '' }));
+                    }
                 } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
             };
 
@@ -585,11 +609,11 @@
                                     <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-8">
                                         <div>
                                             <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData.assignee || '尚未指派'}</span>
                                         </div>
                                         <div>
                                             <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">通知文號</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData.surveyDocNo || '-'}</span>
                                         </div>
                                     </div>
                                 )
@@ -622,7 +646,7 @@
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">辦理情形</label>
-                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
+                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度 (儲存後將自動記錄於下方歷程)..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
                                         </div>
                                     </>
                                 ) : (
@@ -705,15 +729,46 @@
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 px-1">系統歷程</h3>
                             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8">
                                 {caseData.history.map((item, idx) => (
-                                    <div key={idx} className="relative pl-8">
+                                    <div key={idx} className="relative pl-8 group">
                                         <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-200 border-4 border-white"></div>
-                                        <div className="flex flex-wrap items-baseline gap-x-3 mb-1.5">
-                                            <span className="font-bold text-slate-700">{item.author}</span>
-                                            <span className="text-xs font-medium text-slate-400">{item.date}</span>
+                                        <div className="flex flex-wrap items-baseline justify-between mb-1.5">
+                                            <div className="flex gap-x-3 items-baseline">
+                                                <span className="font-bold text-slate-700">{item.author}</span>
+                                                <span className="text-xs font-medium text-slate-400">{item.date}</span>
+                                            </div>
+                                            {isSpecialMode && caseData.status !== 'CLOSED' && editingHistoryIdx !== idx && (
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingHistoryIdx(idx);
+                                                        setEditingHistoryContent(item.content);
+                                                    }}
+                                                    className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 hover:underline bg-indigo-50 px-2 py-1 rounded"
+                                                >
+                                                    <Icons.Edit /> 修改
+                                                </button>
+                                            )}
                                         </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 leading-relaxed inline-block min-w-[200px]">
-                                            {item.content}
-                                        </div>
+                                        
+                                        {editingHistoryIdx === idx ? (
+                                            <div className="bg-slate-50 p-4 rounded-2xl w-full border border-indigo-200 shadow-inner mt-2">
+                                                <textarea
+                                                    className="w-full rounded-xl px-3 py-2 border border-slate-200 focus:ring-4 focus:ring-indigo-500/20 bg-white text-slate-700 leading-relaxed min-h-[80px] text-sm"
+                                                    value={editingHistoryContent}
+                                                    onChange={(e) => setEditingHistoryContent(e.target.value)}
+                                                />
+                                                <div className="flex gap-2 justify-end mt-3">
+                                                    <button onClick={() => setEditingHistoryIdx(null)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+                                                    <button onClick={() => {
+                                                        onEditHistory(caseData.id, idx, editingHistoryContent);
+                                                        setEditingHistoryIdx(null);
+                                                    }} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 leading-relaxed inline-block min-w-[200px] w-full break-words whitespace-pre-wrap mt-2">
+                                                {item.content}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -770,20 +825,19 @@
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
                             const loadedCases = [];
                             snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
-                            loadedCases.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-                            setCases(loadedCases);
+                            setCases(sortCases(loadedCases));
                             setSyncStatus('SYNCED');
                         }, (e) => {
                             setSyncStatus('ERROR');
                             const localData = localStorage.getItem('cases_backup');
-                            if (localData) setCases(JSON.parse(localData));
+                            if (localData) setCases(sortCases(JSON.parse(localData)));
                         });
 
                     } catch(e) {
                         setSyncStatus('ERROR');
                         window.fbStandaloneDb = null;
                         const localData = localStorage.getItem('cases_backup');
-                        if (localData) setCases(JSON.parse(localData));
+                        if (localData) setCases(sortCases(JSON.parse(localData)));
                     }
                 };
 
@@ -845,7 +899,7 @@
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, dismissedMonthNotice: true } };
-                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); // Strip undefined
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 
                 setCases(prev => prev.map(c => c.id === id ? cleanCase : c));
                 
@@ -880,9 +934,9 @@
                     extData: newCase.extData || {}
                 };
                 
-                const cleanRecord = JSON.parse(JSON.stringify(caseRecord)); // Strip undefined to prevent Firebase crash
+                const cleanRecord = JSON.parse(JSON.stringify(caseRecord)); 
 
-                setCases(prev => [cleanRecord, ...prev]);
+                setCases(prev => sortCases([cleanRecord, ...prev]));
                 setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
                 setActiveListTab('PROCESSING'); 
 
@@ -900,12 +954,35 @@
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
                 let updatedHistory = caseToUpdate.history;
-                if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '系統', content: replyText, type: 'STAFF' }];
+                if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '承辦人員', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
                 
-                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); // Strip undefined to prevent Firebase crash
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
 
-                setCases(prevCases => prevCases.map(c => c.id === id ? cleanCase : c));
+                setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
+                setSelectedCase(cleanCase);
+
+                if (window.fbStandaloneDb && window.getDbDoc) {
+                    try {
+                        const { setDoc } = window.FirebaseModules;
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
+                    } catch (err) { 
+                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
+                    }
+                }
+            };
+
+            const handleEditHistory = async (id, historyIdx, newContent) => {
+                const caseToUpdate = cases.find(c => c.id === id);
+                if (!caseToUpdate) return;
+                
+                let updatedHistory = [...caseToUpdate.history];
+                updatedHistory[historyIdx] = { ...updatedHistory[historyIdx], content: newContent };
+                
+                const updatedCase = { ...caseToUpdate, history: updatedHistory };
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase));
+
+                setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
                 setSelectedCase(cleanCase);
 
                 if (window.fbStandaloneDb && window.getDbDoc) {
@@ -1080,7 +1157,7 @@
                             {view === 'SPECIAL_LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={true} />}
                             {view === 'CREATE' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('LIST')} isSpecialMode={false} />}
                             {view === 'CREATE_SPECIAL' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('SPECIAL_LIST')} isSpecialMode={true} />}
-                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} />}
+                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} onEditHistory={handleEditHistory} />}
                         </div>
                     </main>
                 </div>
