@@ -840,14 +840,15 @@
                         apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y",
                         authDomain: "case-data-b9894.firebaseapp.com",
                         projectId: "case-data-b9894",
-                        storageBucket: "ase-data-b9894.firebasestorage.app",
+                        storageBucket: "case-data-b9894.firebasestorage.app",
                         messagingSenderId: "699196825308",
-                        appId: "1:699196825308:web:28efc588e5424a394c5e19"
+                        appId: "1:699196825308:web:28efc588e5424a394c5e19",
+                        measurementId: "G-TVDTL1RNH9"
                     };
 
                     try {
                         // 如果 apiKey 還是預設值，代表使用者還沒設定，退回使用 LocalStorage 模式
-                        if (myFirebaseConfig.apiKey === "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y") {
+                        if (myFirebaseConfig.apiKey === "YOUR_API_KEY") {
                             console.warn("尚未設定 Firebase Config，使用 LocalStorage 模式儲存。");
                             const localData = localStorage.getItem('cases_backup');
                             if (localData) {
