@@ -5,21 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>案件列管系統</title>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        primary: '#6366f1', /* Indigo 500 - 較柔和的主色 */
+                        primary: '#6366f1', /* Indigo 500 */
                         secondary: '#94a3b8',
-                        surface: '#f8fafc', /* Slate 50 - 舒適的背景色 */
+                        surface: '#f8fafc', /* Slate 50 */
                     },
                     boxShadow: {
                         'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.03)',
@@ -41,13 +39,11 @@
             background-color: #f8fafc; 
             color: #334155;
         }
-        /* Custom Soft Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* Form Inputs Custom Style */
         input[type="text"], input[type="email"], input[type="date"], select, textarea {
             transition: all 0.2s ease-in-out;
             border: 1px solid transparent;
@@ -60,7 +56,6 @@
             outline: none;
         }
 
-        /* Fade In Animation */
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { 
             from { opacity: 0; transform: translateY(10px); } 
@@ -68,14 +63,13 @@
         }
     </style>
 
-    <!-- Firebase Modular SDK Import -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         window.FirebaseModules = {
-            initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
             getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc
         };
     </script>
@@ -86,7 +80,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Constants & Helpers ---
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
 
         const calculateWorkingDays = (dateStr, addDays = 3) => {
@@ -109,9 +102,8 @@
             return d.toISOString().split('T')[0];
         };
 
-        const initialCases = []; // 由 Firebase 或 LocalStorage 接管
+        const initialCases = [];
 
-        // --- Clean Icons (SVG) ---
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
@@ -129,7 +121,6 @@
             Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
         };
 
-        // --- UI Components ---
         const Modal = ({ isOpen, title, content, actions }) => {
             if (!isOpen) return null;
             return (
@@ -147,7 +138,6 @@
             );
         };
 
-        // Softer Badges
         const StatusBadge = ({ status }) => {
             const config = {
                 PENDING: { color: 'bg-amber-50 text-amber-700', label: '辦理中' },
@@ -168,14 +158,9 @@
             return <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide ${config.color} whitespace-nowrap`}>{config.label}</span>;
         };
 
-        // --- Views ---
         const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config, isSpecialMode }) => {
             const [filter, setFilter] = useState('');
-            
-            // 根據目前模式過濾案件類型 (一般 vs 特殊)
             const modeFilteredCases = cases.filter(c => isSpecialMode ? c.caseType === 'SPECIAL' : c.caseType !== 'SPECIAL');
-            
-            // 再根據狀態頁籤過濾 (辦理中 vs 已結案)
             const tabFilteredCases = modeFilteredCases.filter(c => config.tabs.find(t => t.id === activeTab)?.filter(c));
             
             const filteredCases = tabFilteredCases.filter(c => {
@@ -190,7 +175,6 @@
 
             return (
                 <div className="h-full flex flex-col animate-fade-in">
-                    {/* Modern Tabs */}
                     <div className="flex p-1.5 bg-white shadow-soft rounded-2xl w-fit mb-6 mx-auto md:mx-0">
                         {config.tabs.map(tab => {
                             const isActive = activeTab === tab.id;
@@ -207,7 +191,6 @@
                         })}
                     </div>
 
-                    {/* Search Bar */}
                     <div className="relative mb-6">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
                             <Icons.Search />
@@ -221,7 +204,6 @@
                         />
                     </div>
                     
-                    {/* Desktop Table (Modernized) */}
                     <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft">
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
@@ -279,7 +261,6 @@
                         )}
                     </div>
 
-                    {/* Mobile Cards (Modernized) */}
                     <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
                         {filteredCases.map(c => (
                             <div key={c.id} className={`bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-transparent'}`} onClick={() => onSelectCase(c)}>
@@ -289,7 +270,7 @@
                                         <CategoryBadge category={c.category} />
                                     </div>
                                     {!isSpecialMode && c.location?.district && (
-                                        <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{c.location?.district}</span>
+                                        <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{c.location.district}</span>
                                     )}
                                 </div>
                                 
@@ -323,10 +304,9 @@
             const [formData, setFormData] = useState({
                 caseType: isSpecialMode ? 'SPECIAL' : 'NORMAL',
                 category: isSpecialMode ? 'DIRECTOR' : 'SURVEY', 
-                name: '', district: '桃園區', address: '', content: '',
+                name: '', district: '桃園區', address: '', content: '', phone: '', email: '',
                 extData: { 
                     surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false, dismissedMonthNotice: false,
-                    // Special Extra Fields
                     assignDate: '', handlingStatus: ''
                 }
             });
@@ -410,6 +390,14 @@
                                                 </select>
                                             </div>
                                             <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">聯絡電話</label>
+                                                <input type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">郵件信箱</label>
+                                                <input type="email" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                            </div>
+                                            <div className="md:col-span-2 space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
                                                 <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                                             </div>
@@ -473,38 +461,38 @@
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
             
-            // 安全初始化 Edit State 確保所有欄位都不會是 undefined
-            const [editExtData, setEditExtData] = useState({
-                surveyDate: caseData?.extData?.surveyDate || '',
-                recordDeadline: caseData?.extData?.recordDeadline || '',
-                recordActualDate: caseData?.extData?.recordActualDate || '',
-                recordDocNo: caseData?.extData?.recordDocNo || '',
-                surveyResolution: caseData?.extData?.surveyResolution || '',
-                dispatchDate: caseData?.extData?.dispatchDate || '',
-                completionDate: caseData?.extData?.completionDate || '',
-                completionDeadline: caseData?.extData?.completionDeadline || '',
-                noDispatchRequired: caseData?.extData?.noDispatchRequired || false,
-                assignDate: caseData?.extData?.assignDate || '',
-                handlingStatus: caseData?.extData?.handlingStatus || '',
-                assignee: caseData?.extData?.assignee || ''
-            });
-            
             const isSpecialMode = caseData.caseType === 'SPECIAL';
+
+            // Initialize safely to avoid React "uncontrolled to controlled" warning
+            const [editExtData, setEditExtData] = useState({
+                surveyDate: caseData.extData?.surveyDate || '',
+                recordDeadline: caseData.extData?.recordDeadline || '',
+                recordActualDate: caseData.extData?.recordActualDate || '',
+                recordDocNo: caseData.extData?.recordDocNo || '',
+                surveyResolution: caseData.extData?.surveyResolution || '',
+                dispatchDate: caseData.extData?.dispatchDate || '',
+                completionDate: caseData.extData?.completionDate || '',
+                completionDeadline: caseData.extData?.completionDeadline || '',
+                noDispatchRequired: caseData.extData?.noDispatchRequired || false,
+                assignDate: caseData.extData?.assignDate || '',
+                handlingStatus: caseData.extData?.handlingStatus || '',
+                assignee: caseData.extData?.assignee || ''
+            });
 
             useEffect(() => {
                 setEditExtData({
-                    surveyDate: caseData?.extData?.surveyDate || '',
-                    recordDeadline: caseData?.extData?.recordDeadline || '',
-                    recordActualDate: caseData?.extData?.recordActualDate || '',
-                    recordDocNo: caseData?.extData?.recordDocNo || '',
-                    surveyResolution: caseData?.extData?.surveyResolution || '',
-                    dispatchDate: caseData?.extData?.dispatchDate || '',
-                    completionDate: caseData?.extData?.completionDate || '',
-                    completionDeadline: caseData?.extData?.completionDeadline || '',
-                    noDispatchRequired: caseData?.extData?.noDispatchRequired || false,
-                    assignDate: caseData?.extData?.assignDate || '',
-                    handlingStatus: caseData?.extData?.handlingStatus || '',
-                    assignee: caseData?.extData?.assignee || ''
+                    surveyDate: caseData.extData?.surveyDate || '',
+                    recordDeadline: caseData.extData?.recordDeadline || '',
+                    recordActualDate: caseData.extData?.recordActualDate || '',
+                    recordDocNo: caseData.extData?.recordDocNo || '',
+                    surveyResolution: caseData.extData?.surveyResolution || '',
+                    dispatchDate: caseData.extData?.dispatchDate || '',
+                    completionDate: caseData.extData?.completionDate || '',
+                    completionDeadline: caseData.extData?.completionDeadline || '',
+                    noDispatchRequired: caseData.extData?.noDispatchRequired || false,
+                    assignDate: caseData.extData?.assignDate || '',
+                    handlingStatus: caseData.extData?.handlingStatus || '',
+                    assignee: caseData.extData?.assignee || ''
                 });
             }, [caseData]);
 
@@ -595,11 +583,11 @@
                                     <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-8">
                                         <div>
                                             <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData.assignee || '尚未指派'}</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span>
                                         </div>
                                         <div>
                                             <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">通知文號</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData.surveyDocNo || '-'}</span>
+                                            <span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span>
                                         </div>
                                     </div>
                                 )
@@ -620,26 +608,26 @@
                                     <>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">實際結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
+                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">辦理情形</label>
-                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
+                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate || ''} 
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate} 
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, 2)});
@@ -647,19 +635,19 @@
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
+                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label>
-                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
+                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
                                         </div>
 
                                         {/* Divider */}
@@ -667,11 +655,11 @@
 
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
                                         </div>
                                         <div className="flex items-center justify-start md:mt-6">
                                             <label className="flex items-center cursor-pointer group">
-                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
+                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
                                                 <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
                                             </label>
                                         </div>
@@ -680,11 +668,11 @@
                                             <>
                                                 <div className="space-y-1.5 animate-fade-in">
                                                     <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
                                                 </div>
                                                 <div className="space-y-1.5 animate-fade-in">
                                                     <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
                                                 </div>
                                             </>
                                         )}
@@ -734,7 +722,7 @@
         };
 
         const CaseManagementSystem = () => {
-            const [view, setView] = useState('LIST'); // LIST | SPECIAL_LIST | CREATE | CREATE_SPECIAL | DETAIL
+            const [view, setView] = useState('LIST'); 
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
@@ -744,7 +732,6 @@
                 const initStandaloneFirebase = async () => {
                     const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
                     
-                    // 強制使用您專屬的 Firebase 金鑰，完全忽略平台的預設環境
                     const myFirebaseConfig = {
                         apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y",
                         authDomain: "case-data-b9894.firebaseapp.com",
@@ -757,44 +744,52 @@
 
                     try {
                         if (!window.fbStandaloneApp) {
-                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "UserApp" + Date.now());
+                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "App" + Date.now());
                             window.fbStandaloneDb = getFirestore(window.fbStandaloneApp);
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
 
-                        // 因為是連接您自己的資料庫，一律使用匿名登入
-                        await signInAnonymously(window.fbAuth);
+                        // 獨立捕捉登入錯誤，確保即使登入超時或失敗，仍會繼續嘗試抓取資料
+                        try {
+                            await signInAnonymously(window.fbAuth);
+                        } catch (authErr) {
+                            console.warn("⚠️ 匿名登入失敗或超時，以未登入狀態繼續:", authErr.message);
+                        }
 
                         const db = window.fbStandaloneDb;
 
-                        // 直接讀寫您的雲端根目錄集合 (my_cases)
                         window.getDbCol = (dbInstance, colName) => collection(dbInstance, colName);
                         window.getDbDoc = (dbInstance, colName, docId) => doc(dbInstance, colName, docId);
 
                         const casesRef = window.getDbCol(db, 'my_cases');
                         const metaRef = window.getDbDoc(db, 'my_meta', 'seed_status');
 
-                        const metaSnap = await getDoc(metaRef);
-                        if (!metaSnap.exists()) {
-                            await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
-                            for (const c of initialCases) { 
-                                await setDoc(window.getDbDoc(db, 'my_cases', c.id), c); 
+                        // 獨立捕捉 Meta 讀取錯誤。這步若是超時或沒權限，就不會連累底下的資料讀取
+                        try {
+                            const metaSnap = await getDoc(metaRef);
+                            if (!metaSnap.exists()) {
+                                await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
                             }
+                        } catch (metaErr) {
+                            console.warn("⚠️ 初始檢查失敗，跳過檢查:", metaErr.message);
                         }
 
+                        // 綁定案件列表的即時監聽 (直接嘗試拉取資料)
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
                             const loadedCases = [];
                             snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
-                            loadedCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                            loadedCases.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                             setCases(loadedCases);
-                        }, (e) => console.warn(e.message));
+                            console.log(`✅ 成功載入 ${loadedCases.length} 筆案件資料`);
+                        }, (e) => {
+                            console.error("❌ Firebase 資料庫監聽失敗:", e.message);
+                        });
 
                     } catch(e) {
-                        console.warn("Firebase 離線備援:", e.message);
+                        console.error("Firebase 初始化嚴重錯誤:", e.message);
                         window.fbStandaloneDb = null;
                         const localData = localStorage.getItem('cases_backup');
                         if (localData) setCases(JSON.parse(localData));
-                        else { setCases(initialCases); localStorage.setItem('cases_backup', JSON.stringify(initialCases)); }
                     }
                 };
 
@@ -857,10 +852,8 @@
                 if (!caseToUpdate) return;
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, dismissedMonthNotice: true } };
                 
-                // 樂觀更新：畫面先無縫變更
                 setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
                 
-                // 背景同步 Firebase
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
@@ -879,12 +872,10 @@
                     extData: newCase.extData
                 };
 
-                // 樂觀更新：畫面先無縫變更，不再等待網路回應
                 setCases(prev => [caseRecord, ...prev]);
                 setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
                 setActiveListTab('PROCESSING'); 
 
-                // 背景同步 Firebase
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
@@ -900,11 +891,9 @@
                 if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '系統', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
                 
-                // 樂觀更新：畫面先無縫變更
                 setCases(prevCases => prevCases.map(c => c.id === id ? updatedCase : c));
                 setSelectedCase(updatedCase);
 
-                // 背景同步 Firebase
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
@@ -917,12 +906,10 @@
                 const deletedCase = cases.find(c => c.id === id);
                 const returnView = deletedCase?.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST';
                 
-                // 樂觀更新：畫面先無縫變更
                 setCases(prevCases => prevCases.filter(c => c.id !== id));
                 setSelectedCase(null); 
                 setView(returnView);
 
-                // 背景同步 Firebase
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { deleteDoc } = window.FirebaseModules;
