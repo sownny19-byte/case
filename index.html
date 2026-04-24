@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>案件列管系統</title>
     
+    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -63,6 +65,7 @@
         }
     </style>
 
+    <!-- Firebase Modular SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -117,7 +120,6 @@
             Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
             Undo: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>,
             Folder: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
-            ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
             Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
         };
 
@@ -608,26 +610,26 @@
                                     <>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">實際結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
+                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">辦理情形</label>
-                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
+                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate} 
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate || ''} 
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, 2)});
@@ -635,19 +637,19 @@
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
+                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
                                         </div>
                                         <div className="md:col-span-2 space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label>
-                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
+                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
                                         </div>
 
                                         {/* Divider */}
@@ -655,11 +657,11 @@
 
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
+                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
                                         </div>
                                         <div className="flex items-center justify-start md:mt-6">
                                             <label className="flex items-center cursor-pointer group">
-                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
+                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
                                                 <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
                                             </label>
                                         </div>
@@ -668,11 +670,11 @@
                                             <>
                                                 <div className="space-y-1.5 animate-fade-in">
                                                     <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
                                                 </div>
                                                 <div className="space-y-1.5 animate-fade-in">
                                                     <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
+                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
                                                 </div>
                                             </>
                                         )}
@@ -726,6 +728,8 @@
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
+            const [syncStatus, setSyncStatus] = useState('CONNECTING'); // CONNECTING | SYNCED | ERROR
+            const [isDataLoaded, setIsDataLoaded] = useState(false);
 
             useEffect(() => {
                 let unsubscribe = null;
@@ -738,8 +742,7 @@
                         projectId: "case-data-b9894",
                         storageBucket: "case-data-b9894.firebasestorage.app",
                         messagingSenderId: "699196825308",
-                        appId: "1:699196825308:web:28efc588e5424a394c5e19",
-                        measurementId: "G-TVDTL1RNH9"
+                        appId: "1:699196825308:web:28efc588e5424a394c5e19"
                     };
 
                     try {
@@ -749,22 +752,19 @@
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
 
-                        // 獨立捕捉登入錯誤，確保即使登入超時或失敗，仍會繼續嘗試抓取資料
                         try {
                             await signInAnonymously(window.fbAuth);
                         } catch (authErr) {
-                            console.warn("⚠️ 匿名登入失敗或超時，以未登入狀態繼續:", authErr.message);
+                            console.warn("⚠️ 匿名登入失敗，以未登入狀態繼續:", authErr.message);
                         }
 
                         const db = window.fbStandaloneDb;
-
                         window.getDbCol = (dbInstance, colName) => collection(dbInstance, colName);
                         window.getDbDoc = (dbInstance, colName, docId) => doc(dbInstance, colName, docId);
 
                         const casesRef = window.getDbCol(db, 'my_cases');
                         const metaRef = window.getDbDoc(db, 'my_meta', 'seed_status');
 
-                        // 獨立捕捉 Meta 讀取錯誤。這步若是超時或沒權限，就不會連累底下的資料讀取
                         try {
                             const metaSnap = await getDoc(metaRef);
                             if (!metaSnap.exists()) {
@@ -774,22 +774,28 @@
                             console.warn("⚠️ 初始檢查失敗，跳過檢查:", metaErr.message);
                         }
 
-                        // 綁定案件列表的即時監聽 (直接嘗試拉取資料)
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
                             const loadedCases = [];
                             snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
                             loadedCases.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                             setCases(loadedCases);
-                            console.log(`✅ 成功載入 ${loadedCases.length} 筆案件資料`);
+                            setSyncStatus('SYNCED');
+                            setIsDataLoaded(true);
                         }, (e) => {
                             console.error("❌ Firebase 資料庫監聽失敗:", e.message);
+                            setSyncStatus('ERROR');
+                            const localData = localStorage.getItem('cases_backup');
+                            if (localData) setCases(JSON.parse(localData));
+                            setIsDataLoaded(true);
                         });
 
                     } catch(e) {
-                        console.error("Firebase 初始化嚴重錯誤:", e.message);
+                        console.error("Firebase 初始化錯誤:", e.message);
+                        setSyncStatus('ERROR');
                         window.fbStandaloneDb = null;
                         const localData = localStorage.getItem('cases_backup');
                         if (localData) setCases(JSON.parse(localData));
+                        setIsDataLoaded(true);
                     }
                 };
 
@@ -801,8 +807,10 @@
             }, []);
 
             useEffect(() => {
-                if (!window.fbStandaloneDb && cases.length > 0) localStorage.setItem('cases_backup', JSON.stringify(cases));
-            }, [cases]);
+                if (isDataLoaded) {
+                    localStorage.setItem('cases_backup', JSON.stringify(cases));
+                }
+            }, [cases, isDataLoaded]);
 
             const config = useMemo(() => ({
                 tabs: [
@@ -857,8 +865,8 @@
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase).catch(err => console.warn(err));
-                    } catch (err) { console.warn(err); }
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
+                    } catch (err) { console.warn("Firebase 寫入失敗:", err); }
                 }
             };
 
@@ -879,8 +887,10 @@
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), caseRecord).catch(err => console.warn(err));
-                    } catch (err) { console.warn(err); }
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), caseRecord);
+                    } catch (err) { 
+                        console.error("Firebase 寫入失敗:", err); 
+                    }
                 }
             };
 
@@ -897,8 +907,10 @@
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { setDoc } = window.FirebaseModules;
-                        setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase).catch(err => console.warn(err));
-                    } catch (err) { console.warn(err); }
+                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), updatedCase);
+                    } catch (err) { 
+                        console.error("Firebase 寫入失敗:", err);
+                    }
                 }
             };
 
@@ -913,8 +925,10 @@
                 if (window.fbStandaloneDb && window.getDbDoc) {
                     try {
                         const { deleteDoc } = window.FirebaseModules;
-                        deleteDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id)).catch(err => console.warn(err));
-                    } catch (err) { console.warn(err); }
+                        await deleteDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id));
+                    } catch (err) { 
+                        console.error("Firebase 刪除失敗:", err);
+                    }
                 }
             };
 
@@ -974,6 +988,11 @@
                                 {view === 'DETAIL' && (selectedCase?.caseType === 'SPECIAL' ? '特殊交辦處理進度' : '案件處理進度')}
                             </h2>
                             <div className="flex items-center gap-4">
+                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">
+                                    {syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">雲端連線中...</span></>}
+                                    {syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}
+                                    {syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (請檢查資料庫權限)</span></>}
+                                </div>
                                 <div className="relative">
                                     <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}>
                                         <Icons.Bell />
