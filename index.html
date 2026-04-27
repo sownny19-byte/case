@@ -221,7 +221,8 @@
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
                                 <tr>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">收件日期</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '會勘日期'}</th>
                                     <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人'}</th>
                                     {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
@@ -234,8 +235,14 @@
                             <tbody className="divide-y divide-slate-50">
                                 {filteredCases.map((c) => (
                                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
+                                        <td className="px-4 py-4">
+                                            <div className="flex flex-col gap-2 items-start">
+                                                <StatusBadge status={c.status} />
+                                                <CategoryBadge category={c.category} />
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
-                                            {c.extData?.receiveDate || '-'}
+                                            {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}
                                         </td>
                                         {isSpecialMode ? (
                                             <>
@@ -282,7 +289,7 @@
                             <div key={c.id} className={`bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500">
-                                        <span className="bg-slate-100 px-2 py-1 rounded-md">收件: {c.extData?.receiveDate || '-'}</span>
+                                        <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}</span>
                                         <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
                                         <span className="bg-slate-100 px-2 py-1 rounded-md">結案: {c.extData?.completionDate || '-'}</span>
                                     </div>
