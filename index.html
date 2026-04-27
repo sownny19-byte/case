@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>案件列管系統</title>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -65,7 +63,6 @@
         }
     </style>
 
-    <!-- Firebase Modular SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -112,8 +109,6 @@
                 return new Date(dateB || 0) - new Date(dateA || 0);
             });
         };
-
-        const initialCases = [];
 
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
@@ -221,8 +216,7 @@
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
                                 <tr>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '會勘日期'}</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">收件日期</th>
                                     <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人'}</th>
                                     {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
@@ -235,14 +229,8 @@
                             <tbody className="divide-y divide-slate-50">
                                 {filteredCases.map((c) => (
                                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
-                                        <td className="px-4 py-4">
-                                            <div className="flex flex-col gap-2 items-start">
-                                                <StatusBadge status={c.status} />
-                                                <CategoryBadge category={c.category} />
-                                            </div>
-                                        </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
-                                            {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}
+                                            {c.extData?.receiveDate || '-'}
                                         </td>
                                         {isSpecialMode ? (
                                             <>
@@ -289,41 +277,20 @@
                             <div key={c.id} className={`bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500">
-                                        <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}</span>
+                                        <span className="bg-slate-100 px-2 py-1 rounded-md">收件: {c.extData?.receiveDate || '-'}</span>
                                         <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
                                         <span className="bg-slate-100 px-2 py-1 rounded-md">結案: {c.extData?.completionDate || '-'}</span>
                                     </div>
                                     {!isSpecialMode && c.location?.district && (
                                         <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>
                                     )}
-                                    {isSpecialMode && (
-                                        <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">特殊交辦</span>
-                                    )}
                                 </div>
-                                
-                                {isSpecialMode ? (
-                                    <>
-                                        <div className="font-bold text-slate-800 mb-1 leading-snug">承辦人：{c.extData?.assignee || '未指派'}</div>
-                                        <div className="text-sm text-slate-400 mb-3">交辦日期：{c.extData?.assignDate || '-'}</div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
-                                            <span>陳情人：{c.petitioner?.name}</span>
-                                            <span>承辦人：<span className="font-bold text-slate-600">{c.extData?.assignee || '未指派'}</span></span>
-                                        </div>
-                                    </>
-                                )}
-                                
+                                <div className="font-bold text-slate-800 mb-1 leading-snug">{isSpecialMode ? '特殊交辦' : c.location?.address}</div>
                                 <div className="text-sm text-slate-500 line-clamp-2 bg-slate-50 p-3 rounded-2xl leading-relaxed">
                                     {c.content}
                                 </div>
                             </div>
                         ))}
-                        {filteredCases.length === 0 && (
-                            <div className="text-center py-16 text-slate-400 font-medium">目前沒有符合條件的案件</div>
-                        )}
                     </div>
                 </div>
             );
@@ -334,9 +301,9 @@
             const [formData, setFormData] = useState({
                 caseType: isSpecialMode ? 'SPECIAL' : 'NORMAL',
                 category: isSpecialMode ? 'DIRECTOR' : 'SURVEY', 
-                name: '', district: '桃園區', address: '', content: '',
+                name: '', district: '桃園區', address: '', content: '', phone: '', email: '',
                 extData: { 
-                    receiveDate: '', // 新增收件日期
+                    receiveDate: '',
                     surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false, dismissedMonthNotice: false,
                     assignDate: '', handlingStatus: '',
                     replyDate: '', replyDocNo: '', replyContent: '', note: ''
@@ -469,7 +436,6 @@
                                             <label className="text-sm font-medium text-slate-600 px-1">回復文號</label>
                                             <input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white focus:ring-4 focus:ring-cyan-500/20" placeholder="輸入回復文號" value={formData.extData.replyDocNo} onChange={e => handleExtData('replyDocNo', e.target.value)} />
                                         </div>
-                                        
                                         <div className="md:col-span-2 bg-cyan-100/50 p-4 rounded-2xl border border-cyan-200 mt-2">
                                             <label className="text-sm font-bold text-cyan-700 mb-2 flex items-center gap-1"><Icons.Clock /> 期限設定 (自動推算)</label>
                                             <div>
@@ -501,7 +467,6 @@
                                                     handleExtData('completionDeadline', calculateMonthsDeadline(val, formData.category === 'A1' ? 1 : 2));
                                                 }} />
                                         </div>
-
                                         <div className="md:col-span-2 bg-indigo-100/50 p-4 rounded-2xl border border-indigo-200 mt-2">
                                             <label className="text-sm font-bold text-indigo-700 mb-3 flex items-center gap-1"><Icons.Clock /> 期限設定 (依會勘日期自動推算)</label>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -536,15 +501,13 @@
         const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete, onEditHistory }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
-            
             const isSpecialMode = caseData.caseType === 'SPECIAL';
             const isReplyMode = !isSpecialMode && caseData.category === 'REPLY';
-
             const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
             const [editingHistoryContent, setEditingHistoryContent] = useState('');
 
             const [editExtData, setEditExtData] = useState({
-                receiveDate: caseData.extData?.receiveDate || '', // 收件日期
+                receiveDate: caseData.extData?.receiveDate || '',
                 surveyDate: caseData.extData?.surveyDate || '',
                 recordDeadline: caseData.extData?.recordDeadline || '',
                 recordActualDate: caseData.extData?.recordActualDate || '',
@@ -592,17 +555,12 @@
                 try {
                     let actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
                     let dataToSave = { ...editExtData };
-                    
                     if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
                         actionText = `【辦理情形】${editExtData.handlingStatus}`;
                         dataToSave.handlingStatus = ''; 
                     }
-                    
                     await onUpdateStatus(caseData.id, stage, actionText, dataToSave);
-                    
-                    if (isSpecialMode) {
-                        setEditExtData(prev => ({ ...prev, handlingStatus: '' }));
-                    }
+                    if (isSpecialMode) setEditExtData(prev => ({ ...prev, handlingStatus: '' }));
                 } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
             };
 
@@ -631,9 +589,7 @@
             return (
                 <div className="h-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-fade-in pb-20 md:pb-0">
                     <Modal {...modalConfig} />
-                    
-                    {/* Left Column: Info */}
-                    <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2">
+                    <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2 text-sm">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0">
                             <div className="flex justify-between items-center mb-6">
                                 <button onClick={onBack} className={`hover:${themeColor} text-slate-400 flex items-center gap-2 text-sm font-bold transition-colors w-fit px-1`}>
@@ -643,248 +599,104 @@
                                     <Icons.Trash /> 刪除
                                 </button>
                             </div>
-                            
                             <div className="flex flex-wrap items-center gap-3 mb-6">
                                 <StatusBadge status={caseData.status} />
                                 <CategoryBadge category={caseData.category} />
+                                {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide">{caseData.location.district}</span>}
                             </div>
-
-                            {isSpecialMode ? (
-                                <>
-                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">特殊交辦案件</h2>
-                                    <p className="text-slate-400 text-sm font-medium mb-8">負責人：{caseData.extData?.assignee || '未指派'}</p>
-                                </>
-                            ) : (
-                                <>
-                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">{caseData.location?.address}</h2>
-                                    <p className="text-slate-400 text-sm font-medium mb-8">陳情人：{caseData.petitioner?.name}</p>
-                                </>
-                            )}
-
+                            <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">{isSpecialMode ? '特殊交辦案件' : caseData.location?.address}</h2>
+                            <p className="text-slate-400 font-medium mb-8">{isSpecialMode ? `負責人：${caseData.extData?.assignee || '未指派'}` : `陳情人：${caseData.petitioner?.name}`}</p>
                             <div className="bg-slate-50/70 p-6 rounded-3xl mb-6">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">{isSpecialMode ? '交辦內容' : '陳情內容'}</span>
                                 <p className="text-slate-700 leading-relaxed">{caseData.content}</p>
                             </div>
-
                             {caseData.extData?.note && (
                                 <div className="bg-amber-50 p-5 rounded-2xl mb-6 border border-amber-100">
                                     <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-2">備註事項</span>
                                     <p className="text-amber-800 text-sm leading-relaxed">{caseData.extData.note}</p>
                                 </div>
                             )}
-
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-6">
-                                <div className="col-span-2">
-                                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span>
-                                    <span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span>
-                                </div>
+                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
                                 {isSpecialMode ? (
                                     <>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span>
-                                        </div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span><span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span></div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span><span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span></div>
                                     </>
                                 ) : isReplyMode ? (
                                     <>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復日期</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.replyDate || '-'}</span>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復文號</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.replyDocNo || '-'}</span>
-                                        </div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復日期</span><span className="font-bold text-slate-700">{caseData.extData?.replyDate || '-'}</span></div>
+                                        <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復文號</span><span className="font-bold text-slate-700">{caseData.extData?.replyDocNo || '-'}</span></div>
                                     </>
                                 ) : (
                                     <>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : '通知文號'}</span>
-                                            <span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span>
-                                        </div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : '通知文號'}</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
                                     </>
                                 )}
                             </div>
                         </div>
                     </div>
-
-                    {/* Right Column: Editing & Timeline */}
                     <div className="w-full xl:w-7/12 flex flex-col gap-6 overflow-y-auto pr-2">
-                        {/* Edit Form Widget */}
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0">
-                            <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                                <Icons.Check /> {caseData.status === 'CLOSED' ? '結案資訊' : '案件處理進度'}
-                            </h3>
-                            
+                            <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><Icons.Check /> {caseData.status === 'CLOSED' ? '結案資訊' : '案件處理進度'}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-1.5 md:col-span-2">
-                                    <label className="text-sm font-medium text-slate-600 px-1">收文 / 收件日期</label>
-                                    <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.receiveDate || ''} onChange={e => setEditExtData({...editExtData, receiveDate: e.target.value})} />
-                                </div>
-                                {/* Divider */}
+                                <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">收文 / 收件日期</label><input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.receiveDate || ''} onChange={e => setEditExtData({...editExtData, receiveDate: e.target.value})} /></div>
                                 <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-
                                 {isSpecialMode ? (
                                     <>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">實際結案時間</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
-                                        </div>
-                                        <div className="md:col-span-2 space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">承辦人</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} />
-                                        </div>
-                                        <div className="md:col-span-2 space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">辦理情形</label>
-                                            <textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度 (儲存後將自動記錄於下方歷程)..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea>
-                                        </div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label><input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">實際結案時間</label><input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} /></div>
+                                        <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">承辦人</label><input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} /></div>
+                                        <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">辦理情形</label><textarea rows="3" disabled={caseData.status==='CLOSED'} placeholder="填寫最新辦理進度..." className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} value={editExtData.handlingStatus || ''} onChange={e => setEditExtData({...editExtData, handlingStatus: e.target.value})}></textarea></div>
                                     </>
                                 ) : isReplyMode ? (
                                     <>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">回復日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyDate || ''} 
-                                                onChange={e => {
-                                                    const val = e.target.value;
-                                                    setEditExtData({ ...editExtData, replyDate: val, completionDeadline: calculateMonthsDeadline(val, 2)});
-                                                }} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">回復文號</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyDocNo || ''} onChange={e => setEditExtData({...editExtData, replyDocNo: e.target.value})} />
-                                        </div>
-                                        <div className="md:col-span-2 space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">回復內容</label>
-                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫回復內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyContent || ''} onChange={e => setEditExtData({...editExtData, replyContent: e.target.value})}></textarea>
-                                        </div>
-                                        {/* Divider */}
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">回復日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyDate || ''} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, replyDate: val, completionDeadline: calculateMonthsDeadline(val, 2)}); }} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">回復文號</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyDocNo || ''} onChange={e => setEditExtData({...editExtData, replyDocNo: e.target.value})} /></div>
+                                        <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">回復內容</label><textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫回復內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-cyan-500/20" value={editExtData.replyContent || ''} onChange={e => setEditExtData({...editExtData, replyContent: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
-                                        </div>
-                                        <div className="flex items-center justify-start md:mt-6">
-                                            <label className="flex items-center cursor-pointer group">
-                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
-                                                <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
-                                            </label>
-                                        </div>
-                                        
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">結案期限</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} /></div>
+                                        <div className="flex items-center justify-start md:mt-6"><label className="flex items-center cursor-pointer group"><input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" /><span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span></label></div>
                                         {!editExtData.noDispatchRequired && (
                                             <>
-                                                <div className="space-y-1.5 animate-fade-in">
-                                                    <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
-                                                </div>
-                                                <div className="space-y-1.5 animate-fade-in">
-                                                    <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
-                                                </div>
+                                                <div className="space-y-1.5 animate-fade-in"><label className="text-sm font-medium text-slate-600 px-1">派工日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} /></div>
+                                                <div className="space-y-1.5 animate-fade-in"><label className="text-sm font-medium text-slate-600 px-1">完工日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} /></div>
                                             </>
                                         )}
                                     </>
                                 ) : (
                                     <>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">會勘日期</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate || ''} 
-                                                onChange={e => {
-                                                    const val = e.target.value;
-                                                    setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, caseData.category === 'A1' ? 1 : 2)});
-                                                }} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label>
-                                            <input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} />
-                                        </div>
-                                        <div className="md:col-span-2 space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label>
-                                            <textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea>
-                                        </div>
-
-                                        {/* Divider */}
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyDate || ''} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, caseData.category === 'A1' ? 1 : 2)}); }} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label><input type="text" disabled={caseData.status==='CLOSED'} placeholder="輸入文號" className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} /></div>
+                                        <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label><textarea rows="2" disabled={caseData.status==='CLOSED'} placeholder="填寫決議內容..." className="w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 focus:ring-indigo-500/20" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-600 px-1">結案期限</label>
-                                            <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} />
-                                        </div>
-                                        <div className="flex items-center justify-start md:mt-6">
-                                            <label className="flex items-center cursor-pointer group">
-                                                <input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" />
-                                                <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span>
-                                            </label>
-                                        </div>
-                                        
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">結案期限</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50/30 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} /></div>
+                                        <div className="flex items-center justify-start md:mt-6"><label className="flex items-center cursor-pointer group"><input type="checkbox" disabled={caseData.status==='CLOSED'} checked={editExtData.noDispatchRequired || false} onChange={e => setEditExtData({...editExtData, noDispatchRequired: e.target.checked})} className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary transition-colors cursor-pointer" /><span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">不需派工施作 (可直接結案)</span></label></div>
                                         {!editExtData.noDispatchRequired && (
                                             <>
-                                                <div className="space-y-1.5 animate-fade-in">
-                                                    <label className="text-sm font-medium text-slate-600 px-1">派工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} />
-                                                </div>
-                                                <div className="space-y-1.5 animate-fade-in">
-                                                    <label className="text-sm font-medium text-slate-600 px-1">完工日期</label>
-                                                    <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} />
-                                                </div>
+                                                <div className="space-y-1.5 animate-fade-in"><label className="text-sm font-medium text-slate-600 px-1">派工日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.dispatchDate || ''} onChange={e => setEditExtData({...editExtData, dispatchDate: e.target.value})} /></div>
+                                                <div className="space-y-1.5 animate-fade-in"><label className="text-sm font-medium text-slate-600 px-1">完工日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-500/20" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} /></div>
                                             </>
                                         )}
                                     </>
                                 )}
-
-                                {/* 共用備註欄位 */}
-                                <div className="md:col-span-2 space-y-1.5 border-t border-slate-100 pt-4 mt-2">
-                                    <label className="text-sm font-medium text-amber-600 px-1">備註事項 (任何階段皆可修改)</label>
-                                    <textarea rows="2" placeholder="紀錄其他補充事項..." className={`w-full rounded-2xl px-4 py-3 leading-relaxed border-amber-200 bg-amber-50 focus:bg-white focus:ring-4 focus:ring-amber-500/20`} value={editExtData.note || ''} onChange={e => setEditExtData({...editExtData, note: e.target.value})}></textarea>
-                                </div>
+                                <div className="md:col-span-2 space-y-1.5 border-t border-slate-100 pt-4 mt-2"><label className="text-sm font-medium text-amber-600 px-1">備註事項</label><textarea rows="2" placeholder="紀錄其他補充事項..." className={`w-full rounded-2xl px-4 py-3 leading-relaxed border-amber-200 bg-amber-50 focus:bg-white focus:ring-4 focus:ring-amber-500/20`} value={editExtData.note || ''} onChange={e => setEditExtData({...editExtData, note: e.target.value})}></textarea></div>
                             </div>
-
-                            {caseData.status !== 'CLOSED' ? (
-                                <div className="mt-8 flex gap-4">
-                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('PENDING')} className={`flex-1 py-4 ${isSpecialMode ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'} rounded-2xl font-bold text-base transition-all active:scale-[0.98]`}>
-                                        {isSubmitting ? '儲存中...' : '僅儲存進度 / 備註'}
-                                    </button>
-                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 py-4 ${themeBtn} text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2`}>
-                                        <Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="mt-8 flex gap-4 flex-col md:flex-row">
-                                    <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className="flex-1 py-4 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 rounded-2xl font-bold text-base transition-all active:scale-[0.98]">
-                                        儲存備註變更
-                                    </button>
-                                    <button disabled={isSubmitting} onClick={handleRevert} className="flex-1 py-4 bg-white border-2 border-slate-100 text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 rounded-2xl font-bold text-base transition-all active:scale-[0.98] flex justify-center items-center gap-2">
-                                        <Icons.Undo /> 恢復為「辦理中」狀態
-                                    </button>
-                                </div>
-                            )}
+                            <div className="mt-8 flex gap-4">
+                                {caseData.status !== 'CLOSED' ? (
+                                    <>
+                                        <button disabled={isSubmitting} onClick={() => handleExtDataReply('PENDING')} className={`flex-1 py-4 ${isSpecialMode ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'} rounded-2xl font-bold text-base transition-all active:scale-[0.98]`}>{isSubmitting ? '儲存中...' : '僅儲存進度 / 備註'}</button>
+                                        <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 py-4 ${themeBtn} text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2`}><Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}</button>
+                                    </>
+                                ) : (
+                                    <div className="mt-8 flex gap-4 flex-col md:flex-row w-full"><button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className="flex-1 py-4 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 rounded-2xl font-bold text-base transition-all active:scale-[0.98]">儲存備註變更</button><button disabled={isSubmitting} onClick={handleRevert} className="flex-1 py-4 bg-white border-2 border-slate-100 text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 rounded-2xl font-bold text-base transition-all active:scale-[0.98] flex justify-center items-center gap-2"><Icons.Undo /> 恢復為「辦理中」狀態</button></div>
+                                )}
+                            </div>
                         </div>
-
-                        {/* History Widget */}
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 px-1">系統歷程</h3>
                             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8">
@@ -892,42 +704,13 @@
                                     <div key={idx} className="relative pl-8 group">
                                         <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-200 border-4 border-white"></div>
                                         <div className="flex flex-wrap items-baseline justify-between mb-1.5">
-                                            <div className="flex gap-x-3 items-baseline">
-                                                <span className="font-bold text-slate-700">{item.author}</span>
-                                                <span className="text-xs font-medium text-slate-400">{item.date}</span>
-                                            </div>
-                                            {isSpecialMode && caseData.status !== 'CLOSED' && editingHistoryIdx !== idx && (
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingHistoryIdx(idx);
-                                                        setEditingHistoryContent(item.content);
-                                                    }}
-                                                    className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 hover:underline bg-indigo-50 px-2 py-1 rounded"
-                                                >
-                                                    <Icons.Edit /> 修改
-                                                </button>
-                                            )}
+                                            <div className="flex gap-x-3 items-baseline"><span className="font-bold text-slate-700">{item.author}</span><span className="text-xs font-medium text-slate-400">{item.date}</span></div>
+                                            {isSpecialMode && caseData.status !== 'CLOSED' && editingHistoryIdx !== idx && (<button onClick={() => { setEditingHistoryIdx(idx); setEditingHistoryContent(item.content); }} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 hover:underline bg-indigo-50 px-2 py-1 rounded"><Icons.Edit /> 修改</button>)}
                                         </div>
-                                        
                                         {editingHistoryIdx === idx ? (
-                                            <div className="bg-slate-50 p-4 rounded-2xl w-full border border-indigo-200 shadow-inner mt-2">
-                                                <textarea
-                                                    className="w-full rounded-xl px-3 py-2 border border-slate-200 focus:ring-4 focus:ring-indigo-500/20 bg-white text-slate-700 leading-relaxed min-h-[80px] text-sm"
-                                                    value={editingHistoryContent}
-                                                    onChange={(e) => setEditingHistoryContent(e.target.value)}
-                                                />
-                                                <div className="flex gap-2 justify-end mt-3">
-                                                    <button onClick={() => setEditingHistoryIdx(null)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
-                                                    <button onClick={() => {
-                                                        onEditHistory(caseData.id, idx, editingHistoryContent);
-                                                        setEditingHistoryIdx(null);
-                                                    }} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button>
-                                                </div>
-                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-2xl w-full border border-indigo-200 shadow-inner mt-2"><textarea className="w-full rounded-xl px-3 py-2 border border-slate-200 focus:ring-4 focus:ring-indigo-500/20 bg-white text-slate-700 leading-relaxed min-h-[80px] text-sm" value={editingHistoryContent} onChange={(e) => setEditingHistoryContent(e.target.value)} /><div className="flex gap-2 justify-end mt-3"><button onClick={() => setEditingHistoryIdx(null)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button><button onClick={() => { onEditHistory(caseData.id, idx, editingHistoryContent); setEditingHistoryIdx(null); }} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button></div></div>
                                         ) : (
-                                            <div className="bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 leading-relaxed inline-block min-w-[200px] w-full break-words whitespace-pre-wrap mt-2">
-                                                {item.content}
-                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 leading-relaxed inline-block min-w-[200px] w-full break-words whitespace-pre-wrap mt-2">{item.content}</div>
                                         )}
                                     </div>
                                 ))}
@@ -949,7 +732,6 @@
                 let unsubscribe = null;
                 const initStandaloneFirebase = async () => {
                     const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
-                    
                     const myFirebaseConfig = {
                         apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y",
                         authDomain: "case-data-b9894.firebaseapp.com",
@@ -958,30 +740,17 @@
                         messagingSenderId: "699196825308",
                         appId: "1:699196825308:web:28efc588e5424a394c5e19"
                     };
-
                     try {
                         if (!window.fbStandaloneApp) {
                             window.fbStandaloneApp = initializeApp(myFirebaseConfig, "App" + Date.now());
                             window.fbStandaloneDb = getFirestore(window.fbStandaloneApp);
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
-
                         try { await signInAnonymously(window.fbAuth); } catch (e) {}
-
                         const db = window.fbStandaloneDb;
-                        window.getDbCol = (dbInstance, colName) => collection(dbInstance, colName);
-                        window.getDbDoc = (dbInstance, colName, docId) => doc(dbInstance, colName, docId);
-
-                        const casesRef = window.getDbCol(db, 'my_cases');
-                        const metaRef = window.getDbDoc(db, 'my_meta', 'seed_status');
-
-                        try {
-                            const metaSnap = await getDoc(metaRef);
-                            if (!metaSnap.exists()) {
-                                await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() });
-                            }
-                        } catch (e) {}
-
+                        const casesRef = collection(db, 'my_cases');
+                        const metaRef = doc(db, 'my_meta', 'seed_status');
+                        try { const metaSnap = await getDoc(metaRef); if (!metaSnap.exists()) { await setDoc(metaRef, { seeded: true, timestamp: new Date().toISOString() }); } } catch (e) {}
                         unsubscribe = onSnapshot(casesRef, (snapshot) => {
                             const loadedCases = [];
                             snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
@@ -992,7 +761,6 @@
                             const localData = localStorage.getItem('cases_backup');
                             if (localData) setCases(sortCases(JSON.parse(localData)));
                         });
-
                     } catch(e) {
                         setSyncStatus('ERROR');
                         window.fbStandaloneDb = null;
@@ -1000,17 +768,11 @@
                         if (localData) setCases(sortCases(JSON.parse(localData)));
                     }
                 };
-
-                const checkFirebase = setInterval(() => {
-                    if (window.FirebaseModules) { clearInterval(checkFirebase); initStandaloneFirebase(); }
-                }, 50);
-
+                const checkFirebase = setInterval(() => { if (window.FirebaseModules) { clearInterval(checkFirebase); initStandaloneFirebase(); } }, 50);
                 return () => { clearInterval(checkFirebase); if (unsubscribe) unsubscribe(); };
             }, []);
 
-            useEffect(() => {
-                localStorage.setItem('cases_backup', JSON.stringify(cases));
-            }, [cases]);
+            useEffect(() => { localStorage.setItem('cases_backup', JSON.stringify(cases)); }, [cases]);
 
             const config = useMemo(() => ({
                 tabs: [
@@ -1021,10 +783,7 @@
 
             const [activeListTab, setActiveListTab] = useState(config.tabs[0].id);
 
-            const handleSelectCase = (c) => {
-                setSelectedCase(c);
-                setView('DETAIL');
-            };
+            const handleSelectCase = (c) => { setSelectedCase(c); setView('DETAIL'); };
 
             const overdueCases = useMemo(() => {
                 const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1044,7 +803,6 @@
                     if (c.status === 'CLOSED' || !c.extData?.completionDeadline) return false;
                     const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0, 0, 0, 0);
                     const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
                     if (diffDays <= 14) { c.noticeType = '2_WEEKS'; c.daysLeft = diffDays; return true; }
                     if (diffDays > 14 && diffDays <= 30) {
                         if (c.extData.dismissedMonthNotice) return false; 
@@ -1060,54 +818,25 @@
                 if (!caseToUpdate) return;
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, dismissedMonthNotice: true } };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
-                
                 setCases(prev => prev.map(c => c.id === id ? cleanCase : c));
-                
-                if (window.fbStandaloneDb && window.getDbDoc) {
-                    try {
-                        const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
-                    } catch (err) {}
-                }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
             };
 
             const handleCreateCase = async (newCase) => {
                 const caseId = Date.now().toString();
                 const caseRecord = {
-                    id: caseId, 
-                    caseNumber: newCase.caseNumber || `CASE-${caseId}`, 
-                    category: newCase.category || 'OTHER', 
-                    caseType: newCase.caseType || 'NORMAL',
-                    petitioner: { 
-                        name: newCase.name || '', 
-                        phone: newCase.phone || '', 
-                        email: newCase.email || '' 
-                    }, 
-                    location: { 
-                        district: newCase.district || '', 
-                        address: newCase.address || '' 
-                    },
-                    content: newCase.content || '', 
-                    status: 'PENDING', 
-                    createdAt: new Date().toLocaleString(),
+                    id: caseId, caseNumber: newCase.caseNumber || `CASE-${caseId}`, category: newCase.category || 'OTHER', caseType: newCase.caseType || 'NORMAL',
+                    petitioner: { name: newCase.name || '', phone: newCase.phone || '', email: newCase.email || '' }, 
+                    location: { district: newCase.district || '', address: newCase.address || '' },
+                    content: newCase.content || '', status: 'PENDING', createdAt: new Date().toLocaleString(),
                     history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
                     extData: newCase.extData || {}
                 };
-                
                 const cleanRecord = JSON.parse(JSON.stringify(caseRecord)); 
-
                 setCases(prev => sortCases([cleanRecord, ...prev]));
                 setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
                 setActiveListTab('PROCESSING'); 
-
-                if (window.fbStandaloneDb && window.getDbDoc) {
-                    try {
-                        const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', caseId), cleanRecord);
-                    } catch (err) { 
-                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
-                    }
-                }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', caseId), cleanRecord); } catch (err) { alert("同步失敗！請檢查權限。"); } }
             };
 
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
@@ -1116,202 +845,95 @@
                 let updatedHistory = caseToUpdate.history;
                 if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '承辦人員', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
-                
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
-
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
                 setSelectedCase(cleanCase);
-
-                if (window.fbStandaloneDb && window.getDbDoc) {
-                    try {
-                        const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
-                    } catch (err) { 
-                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
-                    }
-                }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) { alert("同步被拒絕！"); } }
             };
 
             const handleEditHistory = async (id, historyIdx, newContent) => {
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
-                
                 let updatedHistory = [...caseToUpdate.history];
                 updatedHistory[historyIdx] = { ...updatedHistory[historyIdx], content: newContent };
-                
                 const updatedCase = { ...caseToUpdate, history: updatedHistory };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase));
-
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
                 setSelectedCase(cleanCase);
-
-                if (window.fbStandaloneDb && window.getDbDoc) {
-                    try {
-                        const { setDoc } = window.FirebaseModules;
-                        await setDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
-                    } catch (err) { 
-                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
-                    }
-                }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) { alert("同步被拒絕！"); } }
             };
 
             const handleDeleteCase = async (id) => {
                 const deletedCase = cases.find(c => c.id === id);
                 const returnView = deletedCase?.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST';
-                
                 setCases(prevCases => prevCases.filter(c => c.id !== id));
                 setSelectedCase(null); 
                 setView(returnView);
-
-                if (window.fbStandaloneDb && window.getDbDoc) {
-                    try {
-                        const { deleteDoc } = window.FirebaseModules;
-                        await deleteDoc(window.getDbDoc(window.fbStandaloneDb, 'my_cases', id));
-                    } catch (err) { 
-                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
-                    }
-                }
+                if (window.fbStandaloneDb) { try { const { deleteDoc, doc } = window.FirebaseModules; await deleteDoc(doc(window.fbStandaloneDb, 'my_cases', id)); } catch (err) { alert("雲端刪除失敗！"); } }
             };
 
             const totalNotices = overdueCases.length + closingNotices.length;
 
             return (
                 <div className="h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row bg-surface">
-                    {/* Modern Sidebar (Desktop) */}
                     <aside className="hidden md:flex w-72 bg-white border-r border-slate-100 flex-col shrink-0 z-20">
                         <div className="p-8 pb-4">
-                            <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center mb-6 shadow-float">
-                                <Icons.Folder />
-                            </div>
+                            <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center mb-6 shadow-float"><Icons.Folder /></div>
                             <h1 className="text-2xl font-black tracking-tight text-slate-800">列管案件管理</h1>
                             <div className="text-xs mt-2 text-slate-400 font-bold uppercase tracking-widest">交管系統</div>
                         </div>
                         <nav className="flex-1 p-5 space-y-3 mt-2">
-                            <button onClick={() => setView('LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'LIST' ? 'bg-indigo-50 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
-                                <Icons.List /> 案件清單
-                            </button>
-                            <button onClick={() => setView('SPECIAL_LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'SPECIAL_LIST' ? 'bg-red-500 text-white shadow-md' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}>
-                                <Icons.Alert /> 特殊交辦案件
-                            </button>
+                            <button onClick={() => setView('LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'LIST' ? 'bg-indigo-50 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icons.List /> 案件清單</button>
+                            <button onClick={() => setView('SPECIAL_LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'SPECIAL_LIST' ? 'bg-red-500 text-white shadow-md' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}><Icons.Alert /> 特殊交辦案件</button>
                         </nav>
                         <div className="p-6 pb-8 space-y-3">
-                             <button onClick={() => setView('CREATE')} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95">
-                                <Icons.Plus /> 新增一般案件
-                            </button>
-                            <button onClick={() => setView('CREATE_SPECIAL')} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95">
-                                <Icons.Star /> 新增特殊交辦
-                            </button>
+                             <button onClick={() => setView('CREATE')} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95"><Icons.Plus /> 新增一般案件</button>
+                            <button onClick={() => setView('CREATE_SPECIAL')} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold shadow-float transition-transform active:scale-95"><Icons.Star /> 新增特殊交辦</button>
                         </div>
                     </aside>
-
-                    {/* Mobile Nav */}
                     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-100 flex justify-around items-center px-4 py-2 z-bottom-nav pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-                        <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'LIST' ? 'text-primary bg-indigo-50' : 'text-slate-400'}`}>
-                            <Icons.List />
-                        </button>
-                        <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-600 bg-red-50' : 'text-red-400'}`}>
-                            <Icons.Alert />
-                        </button>
-                        <button onClick={() => setView(view === 'SPECIAL_LIST' ? 'CREATE_SPECIAL' : 'CREATE')} className={`flex flex-col items-center p-4 -mt-10 rounded-full text-white shadow-float active:scale-95 transition-transform border-4 border-surface ${view === 'SPECIAL_LIST' ? 'bg-red-600' : 'bg-slate-800'}`}>
-                            <Icons.Plus />
-                        </button>
+                        <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'LIST' ? 'text-primary bg-indigo-50' : 'text-slate-400'}`}><Icons.List /></button>
+                        <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-3 rounded-2xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-600 bg-red-50' : 'text-red-400'}`}><Icons.Alert /></button>
+                        <button onClick={() => setView(view === 'SPECIAL_LIST' ? 'CREATE_SPECIAL' : 'CREATE')} className={`flex flex-col items-center p-4 -mt-10 rounded-full text-white shadow-float active:scale-95 transition-transform border-4 border-surface ${view === 'SPECIAL_LIST' ? 'bg-red-600' : 'bg-slate-800'}`}><Icons.Plus /></button>
                     </div>
-
-                    {/* Main Content Area */}
                     <main className="flex-1 flex flex-col min-w-0 mb-16 md:mb-0 h-full overflow-hidden relative">
-                        {/* Header */}
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                                {view === 'LIST' && '案件清單總覽'}
-                                {view === 'SPECIAL_LIST' && '特殊交辦清單'}
-                                {view === 'CREATE' && '建立一般案件'}
-                                {view === 'CREATE_SPECIAL' && '建立特殊交辦'}
-                                {view === 'DETAIL' && (selectedCase?.caseType === 'SPECIAL' ? '特殊交辦處理進度' : '案件處理進度')}
-                            </h2>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && (selectedCase?.caseType === 'SPECIAL' ? '特殊交辦處理進度' : '案件處理進度')}</h2>
                             <div className="flex items-center gap-4">
-                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">
-                                    {syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}
-                                    {syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}
-                                    {syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (被阻擋)</span></>}
-                                </div>
+                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">{syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}{syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}{syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (被阻擋)</span></>}</div>
                                 <div className="relative">
-                                    <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}>
-                                        <Icons.Bell />
-                                        {totalNotices > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                                                {totalNotices}
-                                            </span>
-                                        )}
-                                    </button>
-
+                                    <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
                                     {showNotifications && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
                                             <div className="absolute right-0 mt-3 w-[calc(100vw-3rem)] md:w-96 bg-white rounded-3xl shadow-float border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right flex flex-col max-h-[80vh]">
                                                 {overdueCases.length > 0 && (
                                                     <div className="flex-shrink-0">
-                                                        <div className="bg-rose-50/50 px-5 py-4 border-b border-rose-100">
-                                                            <h3 className="font-black text-rose-700 text-sm flex items-center gap-2">
-                                                                <Icons.Alert /> 取號逾期 / 今日到期 ({overdueCases.length})
-                                                            </h3>
-                                                        </div>
-                                                        <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                                        <div className="bg-rose-50/50 px-5 py-4 border-b border-rose-100"><h3 className="font-black text-rose-700 text-sm flex items-center gap-2"><Icons.Alert /> 取號逾期 / 今日到期 ({overdueCases.length})</h3></div>
+                                                        <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-50 bg-white">
                                                             {overdueCases.map(c => (
-                                                                <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-rose-50/30 cursor-pointer transition-colors group">
-                                                                    <div className="font-bold text-slate-800 text-sm group-hover:text-rose-600 transition-colors mb-2 leading-snug">
-                                                                        {c.location?.district} - {c.location?.address}
-                                                                    </div>
-                                                                    <div className="text-xs flex justify-between items-center">
-                                                                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.recordDeadline}</span>
-                                                                        <span className={`${c.isToday ? 'text-amber-500' : 'text-rose-500'} font-bold flex items-center gap-1`}>{c.isToday ? '今日到期' : '已逾期'}</span>
-                                                                    </div>
-                                                                </div>
+                                                                <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-rose-50/30 cursor-pointer transition-colors group"><div className="font-bold text-slate-800 text-sm group-hover:text-rose-600 transition-colors mb-2 leading-snug">{c.location?.district} - {c.location?.address}</div><div className="text-xs flex justify-between items-center"><span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.recordDeadline}</span><span className={`${c.isToday ? 'text-amber-500' : 'text-rose-500'} font-bold flex items-center gap-1`}>{c.isToday ? '今日到期' : '已逾期'}</span></div></div>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )}
-
                                                 {closingNotices.length > 0 && (
                                                     <div className="flex-shrink-0 border-t border-slate-100">
-                                                        <div className="bg-amber-50/50 px-5 py-4 border-b border-amber-100">
-                                                            <h3 className="font-black text-amber-700 text-sm flex items-center gap-2">
-                                                                <Icons.Clock /> 結案即將到期 ({closingNotices.length})
-                                                            </h3>
-                                                        </div>
-                                                        <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                                        <div className="bg-amber-50/50 px-5 py-4 border-b border-amber-100"><h3 className="font-black text-amber-700 text-sm flex items-center gap-2"><Icons.Clock /> 結案即將到期 ({closingNotices.length})</h3></div>
+                                                        <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-50 bg-white">
                                                             {closingNotices.map(c => (
-                                                                <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-amber-50/30 cursor-pointer transition-colors group relative">
-                                                                    {c.noticeType === '1_MONTH' && (
-                                                                        <button onClick={(e) => dismissClosingNotice(e, c.id)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full w-7 h-7 flex items-center justify-center font-bold transition-colors z-10">✕</button>
-                                                                    )}
-                                                                    <div className="font-bold text-slate-800 text-sm group-hover:text-amber-600 transition-colors pr-8 mb-2 leading-snug">
-                                                                        {c.location?.district} - {c.location?.address}
-                                                                    </div>
-                                                                    <div className="text-xs flex justify-between items-center">
-                                                                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.completionDeadline}</span>
-                                                                        <span className={`${c.noticeType === '2_WEEKS' ? 'text-rose-500' : 'text-amber-500'} font-bold flex items-center gap-1`}>
-                                                                            {c.daysLeft < 0 ? '已逾期' : `剩餘 ${c.daysLeft} 天`}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
+                                                                <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-amber-50/30 cursor-pointer transition-colors group relative">{c.noticeType === '1_MONTH' && (<button onClick={(e) => dismissClosingNotice(e, c.id)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full w-7 h-7 flex items-center justify-center font-bold transition-colors z-10">✕</button>)}<div className="font-bold text-slate-800 text-sm group-hover:text-amber-600 transition-colors pr-8 mb-2 leading-snug">{c.location?.district} - {c.location?.address}</div><div className="text-xs flex justify-between items-center"><span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-medium">期限: {c.extData.completionDeadline}</span><span className={`${c.noticeType === '2_WEEKS' ? 'text-rose-500' : 'text-amber-500'} font-bold flex items-center gap-1`}>{c.daysLeft < 0 ? '已逾期' : `剩餘 ${c.daysLeft} 天`}</span></div></div>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                {totalNotices === 0 && (
-                                                    <div className="p-10 text-center flex flex-col items-center gap-3">
-                                                        <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center"><Icons.Check /></div>
-                                                        <span className="text-sm text-slate-400 font-bold">目前無任何待辦通知 🎉</span>
-                                                    </div>
-                                                )}
+                                                {totalNotices === 0 && (<div className="p-10 text-center flex flex-col items-center gap-3"><div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center"><Icons.Check /></div><span className="text-sm text-slate-400 font-bold">目前無任何待辦通知 🎉</span></div>)}
                                             </div>
                                         </>
                                     )}
                                 </div>
                             </div>
                         </header>
-
                         <div className="flex-1 px-4 md:px-10 pb-4 md:pb-10 overflow-hidden flex flex-col">
                             {view === 'LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={false} />}
                             {view === 'SPECIAL_LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={true} />}
