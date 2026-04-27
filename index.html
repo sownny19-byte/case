@@ -216,7 +216,8 @@
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
                                 <tr>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">收件日期</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '會勘日期'}</th>
                                     <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人'}</th>
                                     {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
@@ -229,8 +230,14 @@
                             <tbody className="divide-y divide-slate-50">
                                 {filteredCases.map((c) => (
                                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
+                                        <td className="px-4 py-4">
+                                            <div className="flex flex-col gap-2 items-start">
+                                                <StatusBadge status={c.status} />
+                                                <CategoryBadge category={c.category} />
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
-                                            {c.extData?.receiveDate || '-'}
+                                            {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}
                                         </td>
                                         {isSpecialMode ? (
                                             <>
@@ -276,21 +283,42 @@
                         {filteredCases.map(c => (
                             <div key={c.id} className={`bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500">
-                                        <span className="bg-slate-100 px-2 py-1 rounded-md">收件: {c.extData?.receiveDate || '-'}</span>
-                                        <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
-                                        <span className="bg-slate-100 px-2 py-1 rounded-md">結案: {c.extData?.completionDate || '-'}</span>
+                                    <div className="flex flex-col gap-2">
+                                        <StatusBadge status={c.status} />
+                                        <CategoryBadge category={c.category} />
                                     </div>
                                     {!isSpecialMode && c.location?.district && (
                                         <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>
                                     )}
                                 </div>
-                                <div className="font-bold text-slate-800 mb-1 leading-snug">{isSpecialMode ? '特殊交辦' : c.location?.address}</div>
+                                <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 mb-3">
+                                    <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || '-')}</span>
+                                    <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
+                                    <span className="bg-slate-100 px-2 py-1 rounded-md">結案: {c.extData?.completionDate || '-'}</span>
+                                </div>
+                                {isSpecialMode ? (
+                                    <>
+                                        <div className="font-bold text-slate-800 mb-1 leading-snug">承辦人：{c.extData?.assignee || '未指派'}</div>
+                                        <div className="text-sm text-slate-400 mb-3">交辦日期：{c.extData?.assignDate || '-'}</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
+                                            <span>陳情人：{c.petitioner?.name}</span>
+                                            <span>承辦人：<span className="font-bold text-slate-600">{c.extData?.assignee || '未指派'}</span></span>
+                                        </div>
+                                    </>
+                                )}
+                                
                                 <div className="text-sm text-slate-500 line-clamp-2 bg-slate-50 p-3 rounded-2xl leading-relaxed">
                                     {c.content}
                                 </div>
                             </div>
                         ))}
+                        {filteredCases.length === 0 && (
+                            <div className="text-center py-16 text-slate-400 font-medium">目前沒有符合條件的案件</div>
+                        )}
                     </div>
                 </div>
             );
@@ -498,7 +526,7 @@
             );
         };
 
-        const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete, onEditHistory }) => {
+        const CaseDetail = ({ caseData, onBack, onUpdateStatus, onDelete, onEditHistory, onUpdateBasicInfo }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
             const isSpecialMode = caseData.caseType === 'SPECIAL';
@@ -506,27 +534,35 @@
             const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
             const [editingHistoryContent, setEditingHistoryContent] = useState('');
 
+            // Basic Info Edit States
+            const [isEditingAddress, setEditingAddress] = useState(false);
+            const [editedAddress, setEditedAddress] = useState('');
+            const [isEditingContent, setEditingContent] = useState(false);
+            const [editedContent, setEditedContent] = useState('');
+
             const [editExtData, setEditExtData] = useState({
-                receiveDate: caseData.extData?.receiveDate || '',
-                surveyDate: caseData.extData?.surveyDate || '',
-                recordDeadline: caseData.extData?.recordDeadline || '',
-                recordActualDate: caseData.extData?.recordActualDate || '',
-                recordDocNo: caseData.extData?.recordDocNo || '',
-                surveyResolution: caseData.extData?.surveyResolution || '',
-                dispatchDate: caseData.extData?.dispatchDate || '',
-                completionDate: caseData.extData?.completionDate || '',
-                completionDeadline: caseData.extData?.completionDeadline || '',
-                noDispatchRequired: caseData.extData?.noDispatchRequired || false,
-                assignDate: caseData.extData?.assignDate || '',
-                handlingStatus: caseData.extData?.handlingStatus || '',
-                assignee: caseData.extData?.assignee || '',
-                replyDate: caseData.extData?.replyDate || '',
-                replyDocNo: caseData.extData?.replyDocNo || '',
-                replyContent: caseData.extData?.replyContent || '',
-                note: caseData.extData?.note || ''
+                receiveDate: '',
+                surveyDate: '',
+                recordDeadline: '',
+                recordActualDate: '',
+                recordDocNo: '',
+                surveyResolution: '',
+                dispatchDate: '',
+                completionDate: '',
+                completionDeadline: '',
+                noDispatchRequired: false,
+                assignDate: '',
+                handlingStatus: '',
+                assignee: '',
+                replyDate: '',
+                replyDocNo: '',
+                replyContent: '',
+                note: ''
             });
 
             useEffect(() => {
+                setEditedAddress(caseData.location?.address || '');
+                setEditedContent(caseData.content || '');
                 setEditExtData({
                     receiveDate: caseData.extData?.receiveDate || '',
                     surveyDate: caseData.extData?.surveyDate || '',
@@ -582,6 +618,16 @@
                 });
             };
 
+            const handleSaveAddress = () => {
+                onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress } });
+                setEditingAddress(false);
+            };
+
+            const handleSaveContent = () => {
+                onUpdateBasicInfo(caseData.id, { content: editedContent });
+                setEditingContent(false);
+            };
+
             const themeColor = isSpecialMode ? 'text-red-500' : 'text-primary';
             const themeBtn = isSpecialMode ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-indigo-600';
             const themeRing = isSpecialMode ? 'focus:ring-red-500/20' : 'focus:ring-indigo-500/20';
@@ -604,18 +650,79 @@
                                 <CategoryBadge category={caseData.category} />
                                 {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide">{caseData.location.district}</span>}
                             </div>
-                            <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">{isSpecialMode ? '特殊交辦案件' : caseData.location?.address}</h2>
-                            <p className="text-slate-400 font-medium mb-8">{isSpecialMode ? `負責人：${caseData.extData?.assignee || '未指派'}` : `陳情人：${caseData.petitioner?.name}`}</p>
-                            <div className="bg-slate-50/70 p-6 rounded-3xl mb-6">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">{isSpecialMode ? '交辦內容' : '陳情內容'}</span>
-                                <p className="text-slate-700 leading-relaxed">{caseData.content}</p>
+                            
+                            {isSpecialMode ? (
+                                <>
+                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">特殊交辦案件</h2>
+                                    <p className="text-slate-400 font-medium mb-8">負責人：{caseData.extData?.assignee || '未指派'}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="group relative flex items-center justify-between mb-2 min-h-[3rem]">
+                                        {isEditingAddress ? (
+                                            <div className="flex-1 flex gap-2 items-center mr-2">
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full rounded-xl px-3 py-1.5 border border-slate-300 focus:ring-2 focus:ring-indigo-500/20 text-2xl font-black text-slate-800"
+                                                    value={editedAddress}
+                                                    onChange={e => setEditedAddress(e.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => { setEditingAddress(false); setEditedAddress(caseData.location?.address || ''); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button>
+                                                    <button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg"><Icons.Check /></button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <h2 className="text-2xl font-black text-slate-800 leading-snug pr-8 break-all">{caseData.location?.address}</h2>
+                                                {caseData.status !== 'CLOSED' && (
+                                                    <button onClick={() => setEditingAddress(true)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold">
+                                                        <Icons.Edit /> 修改
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                    <p className="text-slate-400 font-medium mb-8">陳情人：{caseData.petitioner?.name}</p>
+                                </>
+                            )}
+
+                            <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{isSpecialMode ? '交辦內容' : '陳情內容'}</span>
+                                    {caseData.status !== 'CLOSED' && !isEditingContent && (
+                                        <button onClick={() => setEditingContent(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold">
+                                            <Icons.Edit /> 修改
+                                        </button>
+                                    )}
+                                </div>
+                                {isEditingContent ? (
+                                    <div className="flex flex-col gap-3">
+                                        <textarea 
+                                            rows="4" 
+                                            className="w-full rounded-xl px-3 py-2 border border-slate-300 focus:ring-4 focus:ring-indigo-500/20 bg-white text-slate-700 leading-relaxed"
+                                            value={editedContent}
+                                            onChange={e => setEditedContent(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => { setEditingContent(false); setEditedContent(caseData.content || ''); }} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+                                            <button onClick={handleSaveContent} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{caseData.content}</p>
+                                )}
                             </div>
+
                             {caseData.extData?.note && (
                                 <div className="bg-amber-50 p-5 rounded-2xl mb-6 border border-amber-100">
                                     <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-2">備註事項</span>
                                     <p className="text-amber-800 text-sm leading-relaxed">{caseData.extData.note}</p>
                                 </div>
                             )}
+
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-6">
                                 <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
                                 {isSpecialMode ? (
@@ -684,7 +791,7 @@
                                         )}
                                     </>
                                 )}
-                                <div className="md:col-span-2 space-y-1.5 border-t border-slate-100 pt-4 mt-2"><label className="text-sm font-medium text-amber-600 px-1">備註事項</label><textarea rows="2" placeholder="紀錄其他補充事項..." className={`w-full rounded-2xl px-4 py-3 leading-relaxed border-amber-200 bg-amber-50 focus:bg-white focus:ring-4 focus:ring-amber-500/20`} value={editExtData.note || ''} onChange={e => setEditExtData({...editExtData, note: e.target.value})}></textarea></div>
+                                <div className="md:col-span-2 space-y-1.5 border-t border-slate-100 pt-4 mt-2"><label className="text-sm font-medium text-amber-600 px-1">備註事項 (任何階段皆可修改)</label><textarea rows="2" placeholder="紀錄其他補充事項..." className={`w-full rounded-2xl px-4 py-3 leading-relaxed border-amber-200 bg-amber-50 focus:bg-white focus:ring-4 focus:ring-amber-500/20`} value={editExtData.note || ''} onChange={e => setEditExtData({...editExtData, note: e.target.value})}></textarea></div>
                             </div>
                             <div className="mt-8 flex gap-4">
                                 {caseData.status !== 'CLOSED' ? (
@@ -839,6 +946,23 @@
                 if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', caseId), cleanRecord); } catch (err) { alert("同步失敗！請檢查權限。"); } }
             };
 
+            const handleUpdateBasicInfo = async (id, updates) => {
+                const caseToUpdate = cases.find(c => c.id === id);
+                if (!caseToUpdate) return;
+                const updatedCase = { ...caseToUpdate, ...updates };
+                const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
+                setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
+                setSelectedCase(cleanCase);
+                if (window.fbStandaloneDb) {
+                    try {
+                        const { setDoc, doc } = window.FirebaseModules;
+                        await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase);
+                    } catch (err) { 
+                        alert("⚠️ 雲端同步被拒絕！請前往 Firebase Console -> Firestore Database -> Rules 將規則改為 allow read, write: if true;");
+                    }
+                }
+            };
+
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
@@ -939,7 +1063,7 @@
                             {view === 'SPECIAL_LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={true} />}
                             {view === 'CREATE' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('LIST')} isSpecialMode={false} />}
                             {view === 'CREATE_SPECIAL' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('SPECIAL_LIST')} isSpecialMode={true} />}
-                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} onEditHistory={handleEditHistory} />}
+                            {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} onEditHistory={handleEditHistory} onUpdateBasicInfo={handleUpdateBasicInfo} />}
                         </div>
                     </main>
                 </div>
