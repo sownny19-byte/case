@@ -89,6 +89,16 @@
 
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
 
+        // 確保日期不受時區影響 (轉換為本地 YYYY-MM-DD)
+        const getLocalISODate = (date = new Date()) => {
+            if (!date || isNaN(new Date(date).getTime())) return '';
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
         const calculateWorkingDays = (dateStr, addDays = 3) => {
             if (!dateStr) return '';
             const d = new Date(dateStr);
@@ -98,7 +108,7 @@
                 d.setDate(d.getDate() + 1);
                 if (d.getDay() !== 0 && d.getDay() !== 6) daysAdded++;
             }
-            return d.toISOString().split('T')[0];
+            return getLocalISODate(d);
         };
 
         const calculateMonthsDeadline = (dateStr, addMonths = 2) => {
@@ -106,18 +116,18 @@
             const d = new Date(dateStr);
             if (isNaN(d.getTime())) return '';
             d.setMonth(d.getMonth() + addMonths);
-            return d.toISOString().split('T')[0];
+            return getLocalISODate(d);
         };
 
         const sortCases = (casesList) => {
             return [...casesList].sort((a, b) => {
-                const dateA = a.caseType === 'SPECIAL' ? (a.extData?.assignDate || a.createdAt) : (a.extData?.surveyDate || a.createdAt);
-                const dateB = b.caseType === 'SPECIAL' ? (b.extData?.assignDate || b.createdAt) : (b.extData?.surveyDate || b.createdAt);
-                return new Date(dateB || 0) - new Date(dateA || 0);
+                const getSortDate = (c) => {
+                    if (c.caseType === 'SPECIAL') return c.extData?.assignDate || c.extData?.receiveDate || c.createdAt;
+                    return c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || c.createdAt;
+                };
+                return new Date(getSortDate(b) || 0) - new Date(getSortDate(a) || 0);
             });
         };
-
-        const initialCases = [];
 
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
@@ -896,7 +906,13 @@
                 return () => { clearInterval(checkFirebase); if (unsubscribe) unsubscribe(); };
             }, []);
 
-            useEffect(() => { localStorage.setItem('cases_backup', JSON.stringify(cases)); }, [cases]);
+            useEffect(() => { 
+                try {
+                    localStorage.setItem('cases_backup', JSON.stringify(cases)); 
+                } catch(e) {
+                    console.warn("本機暫存空間已滿，略過此次備份", e);
+                }
+            }, [cases]);
 
             const config = useMemo(() => ({
                 tabs: [
@@ -947,13 +963,13 @@
             };
 
             const handleCreateCase = async (newCase) => {
-                const caseId = "CASE" + Date.now().toString() + Math.random().toString(36).substring(2, 5);
+                const caseId = "CASE" + Date.now().toString() + Math.random().toString(36).substring(2, 6);
                 const caseRecord = {
                     id: caseId, caseNumber: newCase.caseNumber || caseId, category: newCase.category || 'OTHER', caseType: newCase.caseType || 'NORMAL',
                     petitioner: { name: newCase.name || '' }, 
                     location: { district: newCase.district || '', address: newCase.address || '' },
-                    content: newCase.content || '', status: 'PENDING', createdAt: new Date().toLocaleString(),
-                    history: [{ date: new Date().toLocaleString(), author: `系統`, content: '案件建立', type: 'USER' }],
+                    content: newCase.content || '', status: 'PENDING', createdAt: getLocalISODate(),
+                    history: [{ date: getLocalISODate(), author: `系統`, content: '案件建立', type: 'USER' }],
                     extData: newCase.extData || {}
                 };
                 const cleanRecord = JSON.parse(JSON.stringify(caseRecord)); 
@@ -984,7 +1000,7 @@
                 const caseToUpdate = cases.find(c => c.id === id);
                 if (!caseToUpdate) return;
                 let updatedHistory = caseToUpdate.history;
-                if (replyText) updatedHistory = [...caseToUpdate.history, { date: new Date().toLocaleString(), author: '承辦人員', content: replyText, type: 'STAFF' }];
+                if (replyText) updatedHistory = [...caseToUpdate.history, { date: getLocalISODate(), author: '承辦人員', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c)));
@@ -1016,11 +1032,9 @@
             // --- 匯出 Excel 功能 ---
             const handleExportExcel = () => {
                 try {
-                    // 1. 分離案件類型
                     const normalCases = cases.filter(c => c.caseType !== 'SPECIAL');
                     const specialCases = cases.filter(c => c.caseType === 'SPECIAL');
 
-                    // 2. 整理「一般案件」欄位
                     const normalData = normalCases.map(c => ({
                         '案件類別': c.category === 'SURVEY' ? '會勘' : c.category === 'REPLY' ? '回復' : c.category === 'A1' ? 'A1事故' : '其他',
                         '案件狀態': c.status === 'CLOSED' ? '已結案' : '辦理中',
@@ -1038,7 +1052,6 @@
                         '系統編號': c.id || ''
                     }));
 
-                    // 3. 整理「特殊交辦」欄位
                     const specialData = specialCases.map(c => ({
                         '案件類別': c.category === 'DIRECTOR' ? '局長案' : c.category === 'TEMP' ? '臨時交辦' : '其他',
                         '案件狀態': c.status === 'CLOSED' ? '已結案' : '辦理中',
@@ -1052,33 +1065,29 @@
                         '系統編號': c.id || ''
                     }));
 
-                    // 4. 轉換為 Excel Sheet
                     const wsNormal = XLSX.utils.json_to_sheet(normalData);
                     const wsSpecial = XLSX.utils.json_to_sheet(specialData);
 
-                    // 5. 美化：設定最適欄寬，讓報表好閱讀
                     wsNormal['!cols'] = [
-                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, // 類別, 狀態, 收件, 會勘
-                        { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, // 地點, 承辦人, 陳情人, 內容
-                        { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, // 文號, 期限, 派工, 完工
-                        { wch: 40 }, { wch: 20 }  // 備註, 系統編號
+                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, 
+                        { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, 
+                        { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
+                        { wch: 40 }, { wch: 20 }
                     ];
 
                     wsSpecial['!cols'] = [
-                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, // 類別, 狀態, 收件, 交辦
-                        { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, // 承辦人, 內容, 預定期限, 實際結案
-                        { wch: 40 }, { wch: 20 }  // 備註, 系統編號
+                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, 
+                        { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, 
+                        { wch: 40 }, { wch: 20 }
                     ];
 
-                    // 6. 建立工作簿並加入分頁
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, wsNormal, "一般案件");
                     if (specialCases.length > 0) {
                         XLSX.utils.book_append_sheet(wb, wsSpecial, "特殊交辦案件");
                     }
 
-                    // 7. 匯出下載
-                    XLSX.writeFile(wb, `列管案件清單_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    XLSX.writeFile(wb, `列管案件清單_${getLocalISODate()}.xlsx`);
                     setShowSettings(false);
                 } catch (error) {
                     console.error(error);
@@ -1086,21 +1095,19 @@
                 }
             };
 
-            // --- 匯出 JSON 備份檔 ---
             const handleExportBackup = () => {
                 const dataStr = JSON.stringify(cases, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `案件備份檔_${new Date().toISOString().split('T')[0]}.json`;
+                link.download = `案件備份檔_${getLocalISODate()}.json`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 setShowSettings(false);
             };
 
-            // --- 匯入 JSON 備份檔 ---
             const handleImportBackup = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
