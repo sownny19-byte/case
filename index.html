@@ -12,6 +12,10 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Excel 匯出庫 (SheetJS) -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -81,7 +85,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
 
@@ -131,6 +135,10 @@
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
             Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
             Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
+            FileExcel: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="11" x2="15" y2="11"></line><line x1="9" y1="19" x2="15" y2="19"></line></svg>,
         };
 
         const Modal = ({ isOpen, title, content, actions }) => {
@@ -590,7 +598,7 @@
                     replyContent: caseData.extData?.replyContent || '',
                     note: caseData.extData?.note || ''
                 });
-            }, [caseData.id]); // Fixed: Only reset form inputs when opening a DIFFERENT case
+            }, [caseData.id]); 
 
             const closeM = () => setModalConfig({ isOpen: false });
 
@@ -841,6 +849,7 @@
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
             const [syncStatus, setSyncStatus] = useState('CONNECTING');
 
             useEffect(() => {
@@ -1004,6 +1013,133 @@
                 if (window.fbStandaloneDb) { try { const { deleteDoc, doc } = window.FirebaseModules; await deleteDoc(doc(window.fbStandaloneDb, 'my_cases', id)); } catch (err) { alert("雲端刪除失敗！"); } }
             };
 
+            // --- 匯出 Excel 功能 ---
+            const handleExportExcel = () => {
+                try {
+                    // 1. 分離案件類型
+                    const normalCases = cases.filter(c => c.caseType !== 'SPECIAL');
+                    const specialCases = cases.filter(c => c.caseType === 'SPECIAL');
+
+                    // 2. 整理「一般案件」欄位
+                    const normalData = normalCases.map(c => ({
+                        '案件類別': c.category === 'SURVEY' ? '會勘' : c.category === 'REPLY' ? '回復' : c.category === 'A1' ? 'A1事故' : '其他',
+                        '案件狀態': c.status === 'CLOSED' ? '已結案' : '辦理中',
+                        '收件日期': c.extData?.receiveDate || '',
+                        '會勘/回復日': c.extData?.surveyDate || c.extData?.replyDate || '',
+                        '案件地點': c.location?.address || '',
+                        '負責承辦人': c.extData?.assignee || '',
+                        '陳情人': c.petitioner?.name || '',
+                        '陳情內容': c.content || '',
+                        '相關文號': c.extData?.surveyDocNo || c.extData?.replyDocNo || '',
+                        '預定結案期限': c.extData?.completionDeadline || '',
+                        '派工日期': c.extData?.dispatchDate || '',
+                        '實際完工日': c.extData?.completionDate || '',
+                        '備註事項': c.extData?.note || '',
+                        '系統編號': c.id || ''
+                    }));
+
+                    // 3. 整理「特殊交辦」欄位
+                    const specialData = specialCases.map(c => ({
+                        '案件類別': c.category === 'DIRECTOR' ? '局長案' : c.category === 'TEMP' ? '臨時交辦' : '其他',
+                        '案件狀態': c.status === 'CLOSED' ? '已結案' : '辦理中',
+                        '收件日期': c.extData?.receiveDate || '',
+                        '交辦時間': c.extData?.assignDate || '',
+                        '負責承辦人': c.extData?.assignee || '',
+                        '交辦內容': c.content || '',
+                        '預定結案期限': c.extData?.completionDeadline || '',
+                        '實際結案時間': c.extData?.completionDate || '',
+                        '備註事項': c.extData?.note || '',
+                        '系統編號': c.id || ''
+                    }));
+
+                    // 4. 轉換為 Excel Sheet
+                    const wsNormal = XLSX.utils.json_to_sheet(normalData);
+                    const wsSpecial = XLSX.utils.json_to_sheet(specialData);
+
+                    // 5. 美化：設定最適欄寬，讓報表好閱讀
+                    wsNormal['!cols'] = [
+                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, // 類別, 狀態, 收件, 會勘
+                        { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, // 地點, 承辦人, 陳情人, 內容
+                        { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, // 文號, 期限, 派工, 完工
+                        { wch: 40 }, { wch: 20 }  // 備註, 系統編號
+                    ];
+
+                    wsSpecial['!cols'] = [
+                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, // 類別, 狀態, 收件, 交辦
+                        { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, // 承辦人, 內容, 預定期限, 實際結案
+                        { wch: 40 }, { wch: 20 }  // 備註, 系統編號
+                    ];
+
+                    // 6. 建立工作簿並加入分頁
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, wsNormal, "一般案件");
+                    if (specialCases.length > 0) {
+                        XLSX.utils.book_append_sheet(wb, wsSpecial, "特殊交辦案件");
+                    }
+
+                    // 7. 匯出下載
+                    XLSX.writeFile(wb, `列管案件清單_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    setShowSettings(false);
+                } catch (error) {
+                    console.error(error);
+                    alert("匯出 Excel 失敗，請確認已載入相關模組。");
+                }
+            };
+
+            // --- 匯出 JSON 備份檔 ---
+            const handleExportBackup = () => {
+                const dataStr = JSON.stringify(cases, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `案件備份檔_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setShowSettings(false);
+            };
+
+            // --- 匯入 JSON 備份檔 ---
+            const handleImportBackup = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const importedCases = JSON.parse(event.target.result);
+                        if (!Array.isArray(importedCases)) throw new Error("檔案格式不正確，必須是有效的備份檔。");
+
+                        if (!window.confirm(`確定要匯入 ${importedCases.length} 筆案件嗎？\n這將會覆寫雲端上同編號的現有資料！`)) return;
+
+                        if (window.fbStandaloneDb) {
+                            const { setDoc, doc } = window.FirebaseModules;
+                            let successCount = 0;
+                            for (const c of importedCases) {
+                                if (c.id) {
+                                    await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c);
+                                    successCount++;
+                                }
+                            }
+                            alert(`✅ 成功匯入並同步 ${successCount} 筆案件資料！\n(系統將自動刷新列表)`);
+                        } else {
+                            alert("⚠️ 尚未連線至雲端，目前僅匯入至本機暫存！");
+                            const newCasesMap = new Map(cases.map(c => [c.id, c]));
+                            importedCases.forEach(c => {
+                                if (c.id) newCasesMap.set(c.id, c);
+                            });
+                            setCases(sortCases(Array.from(newCasesMap.values())));
+                        }
+                    } catch (err) {
+                        alert("❌ 匯入失敗：\n" + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = ''; 
+                setShowSettings(false);
+            };
+
             const totalNotices = overdueCases.length + closingNotices.length;
 
             return (
@@ -1031,10 +1167,12 @@
                     <main className="flex-1 flex flex-col min-w-0 mb-16 md:mb-0 h-full overflow-hidden relative">
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && (selectedCase?.caseType === 'SPECIAL' ? '特殊交辦處理進度' : '案件處理進度')}</h2>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">{syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}{syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}{syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="text-red-600">本機暫存 (被阻擋)</span></>}</div>
+                                
+                                {/* Notifications Bell */}
                                 <div className="relative">
-                                    <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
+                                    <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
                                     {showNotifications && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
@@ -1060,6 +1198,34 @@
                                                     </div>
                                                 )}
                                                 {totalNotices === 0 && (<div className="p-10 text-center flex flex-col items-center gap-3"><div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center"><Icons.Check /></div><span className="text-sm text-slate-400 font-bold">目前無任何待辦通知 🎉</span></div>)}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Settings Menu */}
+                                <div className="relative">
+                                    <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }} className={`relative p-3 rounded-2xl transition-all ${showSettings ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Settings /></button>
+                                    {showSettings && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)}></div>
+                                            <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-float border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right flex flex-col">
+                                                <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100">
+                                                    <h3 className="font-black text-slate-700 text-sm flex items-center gap-2">資料管理與設定</h3>
+                                                </div>
+                                                <div className="p-2 flex flex-col gap-1">
+                                                    <button onClick={handleExportExcel} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors">
+                                                        <Icons.FileExcel /> 匯出 Excel 報表
+                                                    </button>
+                                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                                    <button onClick={handleExportBackup} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors">
+                                                        <Icons.Download /> 下載備份檔 (.json)
+                                                    </button>
+                                                    <label className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-amber-600 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer">
+                                                        <Icons.Upload /> 匯入備份檔 (.json)
+                                                        <input type="file" accept=".json" className="hidden" onChange={handleImportBackup} />
+                                                    </label>
+                                                </div>
                                             </div>
                                         </>
                                     )}
