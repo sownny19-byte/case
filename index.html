@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>案件列管系統2.0</title>
+    <title>案件列管系統</title>
     
     <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 鎖定穩定的 Babel 版本，防止編譯器暴走 -->
+    <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"></script>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -69,16 +71,27 @@
         }
     </style>
 
-    <!-- Firebase Modular SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.FirebaseModules = {
-            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
-            getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc
-        };
+    <!-- Firebase Modular SDK (採用動態 import 解決 Babel 編譯衝突白畫面問題) -->
+    <script>
+        Promise.all([
+            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+        ]).then(([app, auth, firestore]) => {
+            window.FirebaseModules = {
+                initializeApp: app.initializeApp,
+                getAuth: auth.getAuth,
+                signInAnonymously: auth.signInAnonymously,
+                onAuthStateChanged: auth.onAuthStateChanged,
+                getFirestore: firestore.getFirestore,
+                collection: firestore.collection,
+                doc: firestore.doc,
+                setDoc: firestore.setDoc,
+                deleteDoc: firestore.deleteDoc,
+                onSnapshot: firestore.onSnapshot,
+                getDoc: firestore.getDoc
+            };
+        }).catch(err => console.error("Firebase SDK 載入失敗:", err));
     </script>
 </head>
 <body>
@@ -120,6 +133,7 @@
         };
 
         const sortCases = (casesList) => {
+            if (!Array.isArray(casesList)) return [];
             return [...casesList].sort((a, b) => {
                 const getSortDate = (c) => {
                     if (c.caseType === 'SPECIAL') return c.extData?.assignDate || c.extData?.receiveDate || c.createdAt;
@@ -128,8 +142,6 @@
                 return new Date(getSortDate(b) || 0) - new Date(getSortDate(a) || 0);
             });
         };
-
-        const initialCases = [];
 
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
@@ -894,14 +906,18 @@
                             setSyncStatus('SYNCED');
                         }, (e) => {
                             setSyncStatus('ERROR');
-                            const localData = localStorage.getItem('cases_backup');
-                            if (localData) setCases(sortCases(JSON.parse(localData)));
+                            try {
+                                const localData = localStorage.getItem('cases_backup');
+                                if (localData) setCases(sortCases(JSON.parse(localData)));
+                            } catch(err) {}
                         });
                     } catch(e) {
                         setSyncStatus('ERROR');
                         window.fbStandaloneDb = null;
-                        const localData = localStorage.getItem('cases_backup');
-                        if (localData) setCases(sortCases(JSON.parse(localData)));
+                        try {
+                            const localData = localStorage.getItem('cases_backup');
+                            if (localData) setCases(sortCases(JSON.parse(localData)));
+                        } catch(err) {}
                     }
                 };
                 const checkFirebase = setInterval(() => { if (window.FirebaseModules) { clearInterval(checkFirebase); initStandaloneFirebase(); } }, 50);
@@ -912,7 +928,7 @@
                 try {
                     localStorage.setItem('cases_backup', JSON.stringify(cases)); 
                 } catch(e) {
-                    console.warn("本機暫存空間已滿，略過此次備份", e);
+                    console.warn("本機暫存空間已滿或錯誤，略過此次備份", e);
                 }
             }, [cases]);
 
@@ -1031,7 +1047,6 @@
                 if (window.fbStandaloneDb) { try { const { deleteDoc, doc } = window.FirebaseModules; await deleteDoc(doc(window.fbStandaloneDb, 'my_cases', id)); } catch (err) { alert("雲端刪除失敗！"); } }
             };
 
-            // --- 匯出 Excel 功能 ---
             const handleExportExcel = () => {
                 try {
                     const normalCases = cases.filter(c => c.caseType !== 'SPECIAL');
@@ -1070,30 +1085,18 @@
                     const wsNormal = XLSX.utils.json_to_sheet(normalData);
                     const wsSpecial = XLSX.utils.json_to_sheet(specialData);
 
-                    wsNormal['!cols'] = [
-                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, 
-                        { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, 
-                        { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
-                        { wch: 40 }, { wch: 20 }
-                    ];
-
-                    wsSpecial['!cols'] = [
-                        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, 
-                        { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, 
-                        { wch: 40 }, { wch: 20 }
-                    ];
+                    wsNormal['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
+                    wsSpecial['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
 
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, wsNormal, "一般案件");
-                    if (specialCases.length > 0) {
-                        XLSX.utils.book_append_sheet(wb, wsSpecial, "特殊交辦案件");
-                    }
+                    if (specialCases.length > 0) { XLSX.utils.book_append_sheet(wb, wsSpecial, "特殊交辦案件"); }
 
                     XLSX.writeFile(wb, `列管案件清單_${getLocalISODate()}.xlsx`);
                     setShowSettings(false);
                 } catch (error) {
                     console.error(error);
-                    alert("匯出 Excel 失敗，請確認已載入相關模組。");
+                    alert("匯出 Excel 失敗，請確認網路連線。");
                 }
             };
 
@@ -1119,25 +1122,19 @@
                     try {
                         const importedCases = JSON.parse(event.target.result);
                         if (!Array.isArray(importedCases)) throw new Error("檔案格式不正確，必須是有效的備份檔。");
-
                         if (!window.confirm(`確定要匯入 ${importedCases.length} 筆案件嗎？\n這將會覆寫雲端上同編號的現有資料！`)) return;
 
                         if (window.fbStandaloneDb) {
                             const { setDoc, doc } = window.FirebaseModules;
                             let successCount = 0;
                             for (const c of importedCases) {
-                                if (c.id) {
-                                    await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c);
-                                    successCount++;
-                                }
+                                if (c.id) { await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c); successCount++; }
                             }
-                            alert(`✅ 成功匯入並同步 ${successCount} 筆案件資料！\n(系統將自動刷新列表)`);
+                            alert(`✅ 成功匯入並同步 ${successCount} 筆案件資料！`);
                         } else {
                             alert("⚠️ 尚未連線至雲端，目前僅匯入至本機暫存！");
                             const newCasesMap = new Map(cases.map(c => [c.id, c]));
-                            importedCases.forEach(c => {
-                                if (c.id) newCasesMap.set(c.id, c);
-                            });
+                            importedCases.forEach(c => { if (c.id) newCasesMap.set(c.id, c); });
                             setCases(sortCases(Array.from(newCasesMap.values())));
                         }
                     } catch (err) {
