@@ -195,6 +195,9 @@
                 SURVEY: { color: 'bg-indigo-50 text-indigo-700', label: '會勘' },
                 REPLY: { color: 'bg-cyan-50 text-cyan-700', label: '回復' },
                 A1: { color: 'bg-rose-50 text-rose-700', label: 'A1事故' },
+                FORWARD: { color: 'bg-purple-50 text-purple-700', label: '函轉' },
+                SELF: { color: 'bg-teal-50 text-teal-700', label: '自辦' },
+                OTHER_UNIT: { color: 'bg-blue-50 text-blue-700', label: '其他單位辦理' },
                 DIRECTOR: { color: 'bg-red-100 text-red-700', label: '局長案' },
                 TEMP: { color: 'bg-orange-100 text-orange-700', label: '臨時交辦' },
                 OTHER_SPECIAL: { color: 'bg-stone-100 text-stone-700', label: '其他(特殊)' },
@@ -259,7 +262,7 @@
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '會勘日期'}</th>
                                     <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人'}</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人/主政單位'}</th>
                                     {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
                                     <th className="px-4 py-5 font-bold w-1/4">{isSpecialMode ? '交辦內容' : '陳情內容'}</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">派工日期</th>
@@ -290,7 +293,9 @@
                                                     <div className="font-bold text-slate-700">{c.location?.district || '-'}</div>
                                                     <div className="text-slate-500 text-xs mt-1 truncate max-w-[140px]">{c.location?.address || '-'}</div>
                                                 </td>
-                                                <td className="px-4 py-4 font-medium text-slate-600 whitespace-nowrap">{c.petitioner?.name || '-'}</td>
+                                                <td className="px-4 py-4 font-medium text-slate-600 whitespace-nowrap">
+                                                    {c.category === 'SELF' ? <span className="text-slate-400 italic">無</span> : c.petitioner?.name || '-'}
+                                                </td>
                                                 <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">{c.extData?.assignee || '未指派'}</td>
                                             </>
                                         )}
@@ -345,7 +350,12 @@
                                     <>
                                         <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
                                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
-                                            <span>陳情人：{c.petitioner?.name}</span>
+                                            {c.category !== 'SELF' && (
+                                                <span>{c.category === 'OTHER_UNIT' ? '主政單位' : '陳情人'}：{c.petitioner?.name || '-'}</span>
+                                            )}
+                                            {c.category === 'SELF' && (
+                                                <span>自辦案件</span>
+                                            )}
                                             <span>承辦人：<span className="font-bold text-slate-600">{c.extData?.assignee || '未指派'}</span></span>
                                         </div>
                                     </>
@@ -425,6 +435,9 @@
                                                     <option value="SURVEY">會勘</option>
                                                     <option value="REPLY">回復</option>
                                                     <option value="A1">A1事故</option>
+                                                    <option value="FORWARD">函轉</option>
+                                                    <option value="SELF">自辦</option>
+                                                    <option value="OTHER_UNIT">其他單位辦理</option>
                                                 </>
                                             )}
                                         </select>
@@ -456,10 +469,14 @@
                                         </>
                                     ) : (
                                         <>
-                                            <div className="space-y-1.5">
-                                                <label className="text-sm font-medium text-slate-600 px-1">陳情人</label>
-                                                <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="陳情人姓名" />
-                                            </div>
+                                            {formData.category !== 'SELF' && (
+                                                <div className="space-y-1.5">
+                                                    <label className="text-sm font-medium text-slate-600 px-1">
+                                                        {formData.category === 'OTHER_UNIT' ? '主政單位' : '陳情人'}
+                                                    </label>
+                                                    <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder={formData.category === 'OTHER_UNIT' ? '輸入主政單位名稱' : '陳情人姓名'} />
+                                                </div>
+                                            )}
                                             <div className="space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">行政區</label>
                                                 <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
@@ -577,6 +594,7 @@
             // Basic Info Edit States
             const [isEditingAddress, setEditingAddress] = useState(false);
             const [editedAddress, setEditedAddress] = useState('');
+            const [editedDistrict, setEditedDistrict] = useState('');
             const [isEditingContent, setEditingContent] = useState(false);
             const [editedContent, setEditedContent] = useState('');
 
@@ -602,6 +620,7 @@
 
             useEffect(() => {
                 setEditedAddress(caseData.location?.address || '');
+                setEditedDistrict(caseData.location?.district || '桃園區');
                 setEditedContent(caseData.content || '');
                 setEditExtData({
                     receiveDate: caseData.extData?.receiveDate || '',
@@ -659,7 +678,7 @@
             };
 
             const handleSaveAddress = () => {
-                onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress } });
+                onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress, district: editedDistrict } });
                 setEditingAddress(false);
             };
 
@@ -700,16 +719,23 @@
                                 <>
                                     <div className="group relative flex items-center justify-between mb-2 min-h-[3rem]">
                                         {isEditingAddress ? (
-                                            <div className="flex-1 flex gap-2 items-center mr-2">
+                                            <div className="flex-1 flex flex-col md:flex-row gap-2 items-start md:items-center mr-2">
+                                                <select 
+                                                    className="w-full md:w-auto rounded-xl px-3 py-1.5 border border-slate-300 focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-700 bg-white shrink-0"
+                                                    value={editedDistrict}
+                                                    onChange={e => setEditedDistrict(e.target.value)}
+                                                >
+                                                    {TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                </select>
                                                 <input 
                                                     type="text" 
-                                                    className="w-full rounded-xl px-3 py-1.5 border border-slate-300 focus:ring-2 focus:ring-indigo-500/20 text-2xl font-black text-slate-800"
+                                                    className="w-full rounded-xl px-3 py-1.5 border border-slate-300 focus:ring-2 focus:ring-indigo-500/20 text-lg md:text-2xl font-black text-slate-800"
                                                     value={editedAddress}
                                                     onChange={e => setEditedAddress(e.target.value)}
                                                     autoFocus
                                                 />
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => { setEditingAddress(false); setEditedAddress(caseData.location?.address || ''); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button>
+                                                <div className="flex gap-1 shrink-0 mt-2 md:mt-0 self-end md:self-auto">
+                                                    <button onClick={() => { setEditingAddress(false); setEditedAddress(caseData.location?.address || ''); setEditedDistrict(caseData.location?.district || '桃園區'); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button>
                                                     <button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg"><Icons.Check /></button>
                                                 </div>
                                             </div>
@@ -724,7 +750,11 @@
                                             </>
                                         )}
                                     </div>
-                                    <p className="text-slate-400 font-medium mb-8">陳情人：{caseData.petitioner?.name}</p>
+                                    <p className="text-slate-400 font-medium mb-8">
+                                        {caseData.category === 'SELF' ? '自辦案件 (無陳情人)' :
+                                         caseData.category === 'OTHER_UNIT' ? `主政單位：${caseData.petitioner?.name || '-'}` :
+                                         `陳情人：${caseData.petitioner?.name || '-'}`}
+                                    </p>
                                 </>
                             )}
 
@@ -946,6 +976,9 @@
             const overdueCases = useMemo(() => {
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 return cases.filter(c => {
+                    // 修復：只有「會勘」與「A1事故」才需要檢查取號逾期，其他類別(如回復、函轉)即使有殘留日期也不該計算
+                    if (!['SURVEY', 'A1'].includes(c.category)) return false;
+                    
                     if (c.status === 'CLOSED' || !c.extData?.recordDeadline || c.extData.recordActualDate) return false; 
                     const deadline = new Date(c.extData.recordDeadline); deadline.setHours(0, 0, 0, 0); 
                     return today >= deadline; 
@@ -1053,13 +1086,14 @@
                     const specialCases = cases.filter(c => c.caseType === 'SPECIAL');
 
                     const normalData = normalCases.map(c => ({
-                        '案件類別': c.category === 'SURVEY' ? '會勘' : c.category === 'REPLY' ? '回復' : c.category === 'A1' ? 'A1事故' : '其他',
+                        '案件類別': c.category === 'SURVEY' ? '會勘' : c.category === 'REPLY' ? '回復' : c.category === 'A1' ? 'A1事故' : c.category === 'FORWARD' ? '函轉' : c.category === 'SELF' ? '自辦' : c.category === 'OTHER_UNIT' ? '其他單位辦理' : '其他',
                         '案件狀態': c.status === 'CLOSED' ? '已結案' : '辦理中',
                         '收件日期': c.extData?.receiveDate || '',
                         '會勘/回復日': c.extData?.surveyDate || c.extData?.replyDate || '',
                         '案件地點': c.location?.address || '',
+                        '行政區': c.location?.district || '',
                         '負責承辦人': c.extData?.assignee || '',
-                        '陳情人': c.petitioner?.name || '',
+                        '陳情人/主政單位': c.category === 'SELF' ? '-' : c.petitioner?.name || '',
                         '陳情內容': c.content || '',
                         '相關文號': c.extData?.surveyDocNo || c.extData?.replyDocNo || '',
                         '預定結案期限': c.extData?.completionDeadline || '',
@@ -1085,7 +1119,7 @@
                     const wsNormal = XLSX.utils.json_to_sheet(normalData);
                     const wsSpecial = XLSX.utils.json_to_sheet(specialData);
 
-                    wsNormal['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
+                    wsNormal['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
                     wsSpecial['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 60 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
 
                     const wb = XLSX.utils.book_new();
