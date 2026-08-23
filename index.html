@@ -57,7 +57,7 @@
         .warning-row:hover { background-color: rgba(254, 243, 199, 1); }
     </style>
 
-    <script type="module">
+    <script>
         Promise.all([
             import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
             import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
@@ -129,7 +129,11 @@
             Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
             Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
             Link: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>,
-            Unlink: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18.84 12.25 1.72-1.71h-.01a5.001 5.001 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="m5.17 11.75-1.71 1.71a5.001 5.001 0 0 0 7.07 7.07l1.71-1.71"></path><line x1="8" y1="2" x2="8" y2="5"></line><line x1="2" y1="8" x2="5" y2="8"></line><line x1="16" y1="19" x2="16" y2="22"></line><line x1="19" y1="16" x2="22" y2="16"></line></svg>
+            Unlink: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18.84 12.25 1.72-1.71h-.01a5.001 5.001 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="m5.17 11.75-1.71 1.71a5.001 5.001 0 0 0 7.07 7.07l1.71-1.71"></path><line x1="8" y1="2" x2="8" y2="5"></line><line x1="2" y1="8" x2="5" y2="8"></line><line x1="16" y1="19" x2="16" y2="22"></line><line x1="19" y1="16" x2="22" y2="16"></line></svg>,
+            Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
         };
 
         const Modal = ({ isOpen, title, content, actions }) => {
@@ -171,6 +175,19 @@
             return <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide ${config.color} whitespace-nowrap`}>{config.label}</span>;
         };
 
+        const WarningBadge = ({ caseData }) => {
+            if (caseData.status === 'CLOSED' || caseData.status === 'MERGED') return <span className="text-slate-400 font-bold text-xs">無</span>;
+            if (!caseData.extData?.completionDeadline) return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md font-bold text-xs border border-emerald-100 w-fit whitespace-nowrap flex items-center gap-1">安全期</span>;
+            
+            const today = new Date(); today.setHours(0,0,0,0);
+            const deadline = new Date(caseData.extData.completionDeadline); deadline.setHours(0,0,0,0);
+            const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-rose-200"><Icons.Alert /> 已逾期</span>;
+            if (diffDays <= 15) return <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-amber-200"><Icons.Clock /> 剩 {diffDays} 天</span>;
+            return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md font-bold text-xs border border-emerald-100 w-fit whitespace-nowrap flex items-center gap-1">安全期</span>;
+        };
+
         const getRowStatusClass = (c) => {
             if (c.status === 'CLOSED' || c.status === 'MERGED') return 'hover:bg-slate-50/80 transition-colors';
             if (!c.extData?.completionDeadline) return 'hover:bg-slate-50/80 transition-colors';
@@ -182,17 +199,6 @@
             if (diffDays < 0) return 'urgent-row';
             if (diffDays <= 15) return 'warning-row';
             return 'hover:bg-slate-50/80 transition-colors';
-        };
-
-        const getDeadlineColor = (c) => {
-             if (c.status === 'CLOSED' || c.status === 'MERGED') return 'text-slate-500';
-             if (!c.extData?.completionDeadline) return 'text-slate-500';
-             const today = new Date(); today.setHours(0,0,0,0);
-             const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0,0,0,0);
-             const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-             if (diffDays < 0) return 'text-red-600 font-bold';
-             if (diffDays <= 15) return 'text-amber-600 font-bold';
-             return 'text-slate-600';
         };
 
         const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config, isSpecialMode }) => {
@@ -219,9 +225,10 @@
                         {config.tabs.map(tab => {
                             const isActive = activeTab === tab.id;
                             const activeColor = isSpecialMode ? 'bg-red-500 text-white shadow-md' : 'bg-primary text-white shadow-md';
+                            const tabCount = modeFilteredCases.filter(tab.filter).length;
                             return (
-                                <button key={tab.id} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? activeColor : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} onClick={() => onTabChange(tab.id)}>
-                                    <tab.icon /> {tab.label}
+                                <button key={tab.id} className={`flex items-center gap-2 px-5 md:px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? activeColor : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} onClick={() => onTabChange(tab.id)}>
+                                    <tab.icon /> {tab.label} <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>{tabCount}</span>
                                 </button>
                             );
                         })}
@@ -234,12 +241,12 @@
                             value={filter} onChange={(e) => setFilter(e.target.value)} />
                     </div>
                     
-                    {/* Desktop View Table */}
-                    <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
+                    <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft border border-slate-100">
+                        <table className="w-full text-sm text-left relative">
+                            <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur-md z-10 shadow-sm border-b border-slate-100">
                                 <tr>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
+                                    <th className="px-4 py-5 font-bold whitespace-nowrap">預警狀態</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '收文/會勘日'}</th>
                                     <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人/主政單位'}</th>
@@ -257,9 +264,10 @@
                                             <div className="flex flex-col gap-2 items-start">
                                                 <StatusBadge status={c.status} />
                                                 <CategoryBadge category={c.category} />
-                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Link/> 已併案</span>}
+                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-300"><Icons.Link/> 已併案</span>}
                                             </div>
                                         </td>
+                                        <td className="px-4 py-4 whitespace-nowrap"><WarningBadge caseData={c} /></td>
                                         <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
                                             {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || '-')}
                                         </td>
@@ -285,11 +293,11 @@
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="text-slate-800 font-bold">{c.extData?.completionDate || '-'}</div>
                                             {c.status !== 'CLOSED' && c.status !== 'MERGED' && (
-                                                <div className={`text-xs mt-1 ${getDeadlineColor(c)}`}>({c.extData?.completionDeadline || '無期限'})</div>
+                                                <div className={`text-xs mt-1 text-slate-400 font-medium`}>({c.extData?.completionDeadline || '無期限'})</div>
                                             )}
                                         </td>
                                         <td className="px-4 py-4 text-center">
-                                            <button onClick={() => onSelectCase(c)} className={`font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap shadow-sm ${isSpecialMode ? 'text-red-700 bg-white border border-red-200 hover:bg-red-50' : 'text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50'}`}>查看詳情</button>
+                                            <button onClick={() => onSelectCase(c)} className={`font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap shadow-sm border ${isSpecialMode ? 'text-red-700 bg-white border-red-200 hover:bg-red-50' : 'text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50'}`}>查看詳情</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -300,7 +308,7 @@
                         )}
                     </div>
 
-                    {}
+                    {/* Mobile View */}
                     <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
                         {filteredCases.map(c => (
                             <div key={c.id} className={`${getRowStatusClass(c)} bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
@@ -308,14 +316,17 @@
                                     <div className="flex flex-col gap-2">
                                         <StatusBadge status={c.status} />
                                         <CategoryBadge category={c.category} />
-                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Icons.Link/> 已併案</span>}
+                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit border border-slate-300"><Icons.Link/> 已併案</span>}
                                     </div>
-                                    {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>}
+                                    <div className="flex flex-col items-end gap-2">
+                                        <WarningBadge caseData={c} />
+                                        {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">{c.location.district}</span>}
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 mb-3">
                                     <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '收文/會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || '-')}</span>
                                     <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
-                                    <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || <span className={getDeadlineColor(c)}>{c.extData?.completionDeadline || '-'}</span>}</span>
+                                    <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || c.extData?.completionDeadline || '-'}</span>
                                 </div>
                                 {isSpecialMode ? (
                                     <>
@@ -359,7 +370,6 @@
                 e.preventDefault(); setIsSubmitting(true);
                 try { 
                     let submitData = { ...formData };
-                    // 函轉建檔自動結案邏輯
                     if (!isSpecialMode && formData.category === 'FORWARD') {
                          submitData.status = 'CLOSED';
                          submitData.extData.completionDate = getLocalISODate();
@@ -385,7 +395,6 @@
                         </div>
                         
                         <form onSubmit={handleSubmit} className="space-y-10">
-                            {}
                             <section>
                                 <h3 className={`text-sm font-bold uppercase tracking-wider mb-5 px-1 ${themeColor}`}>基本資料</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -450,7 +459,6 @@
                                 </div>
                             </section>
 
-                            {}
                             {!isSpecialMode && formData.category === 'REPLY' ? (
                                 <section>
                                     <h3 className="text-sm font-bold text-cyan-600 uppercase tracking-wider mb-5 px-1">回復預定資訊</h3>
@@ -557,6 +565,8 @@
                 setIsSubmitting(true);
                 try {
                     let actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
+                    if (stage === 'MERGED') actionText = '更新併案內容進度';
+                    
                     let dataToSave = { ...editExtData };
                     if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
                         actionText = `【辦理情形】${editExtData.handlingStatus}`; dataToSave.handlingStatus = ''; 
@@ -589,7 +599,7 @@
             
             const performMerge = (targetCaseId) => {
                 setModalConfig({
-                    isOpen: true, title: '確認併案', content: '併案後，目前這筆案件將會關閉並標示為「已併案」，且無法獨立編輯，確定要將它併入所選的案件嗎？',
+                    isOpen: true, title: '確認併案', content: '併案後，目前這筆案件將會關閉並標示為「已併案」，確定要將它併入所選的主案件嗎？',
                     actions: (
                         <div className="flex gap-3 mt-4">
                             <button onClick={closeM} className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">取消</button>
@@ -620,7 +630,6 @@
             return (
                 <div className="h-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-fade-in pb-20 md:pb-0">
                     <Modal {...modalConfig} />
-                    {}
                     <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2 text-sm">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100">
                             <div className="flex justify-between items-center mb-6">
@@ -630,6 +639,7 @@
                             <div className="flex flex-wrap items-center gap-3 mb-6">
                                 <StatusBadge status={caseData.status} />
                                 <CategoryBadge category={caseData.category} />
+                                <WarningBadge caseData={caseData} />
                                 {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide border border-slate-200">{caseData.location.district}</span>}
                             </div>
                             
@@ -677,7 +687,6 @@
 
                             {caseData.extData?.note && (<div className="bg-amber-50 p-5 rounded-2xl mb-6 border border-amber-100"><span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-2">備註事項</span><p className="text-amber-800 text-sm leading-relaxed">{caseData.extData.note}</p></div>)}
                             
-                            {}
                             {childCases.length > 0 && (
                                 <div className="bg-blue-50/50 border border-blue-100 rounded-3xl p-6 mb-6">
                                      <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wider mb-4 flex items-center gap-2"><Icons.Folder /> 併入此案的子案件 ({childCases.length})</h3>
@@ -723,8 +732,7 @@
                             </div>
                         </div>
                         
-                        {}
-                        {caseData.status !== 'MERGED' && (
+                        {caseData.status !== 'MERGED' && caseData.status !== 'CLOSED' && (
                             <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl shrink-0 transition-all">
                                 {!showMergePanel ? (
                                      <button onClick={() => setShowMergePanel(true)} className="w-full py-3 bg-white border border-slate-300 text-slate-600 font-bold rounded-xl flex justify-center items-center gap-2 hover:bg-slate-100 hover:text-slate-800 transition-colors"><Icons.Link /> 將此案併入其他案件</button>
@@ -741,13 +749,13 @@
                         )}
                     </div>
                     
-                    {}
+                    {/* 右側 - 進度與歷程區塊 */}
                     <div className="w-full xl:w-7/12 flex flex-col gap-6 overflow-y-auto pr-2">
                         {caseData.status === 'MERGED' && (
                              <div className="bg-slate-100 border-2 border-slate-300 p-8 rounded-3xl flex flex-col items-center justify-center text-center gap-4">
                                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-slate-400 shadow-sm"><Icons.Link /></div>
-                                  <h3 className="text-xl font-bold text-slate-700">此案件已被併入其他案件</h3>
-                                  <p className="text-slate-500 text-sm max-w-md">本案件目前為子案件狀態。您仍可編輯案件內容與更新備註，但建議前往主案件查看整體辦理進度。</p>
+                                  <h3 className="text-xl font-bold text-slate-700">此案件已併入其他案件</h3>
+                                  <p className="text-slate-500 text-sm max-w-md">本案件目前為子案件狀態。您仍可更新進度與備註，但建議前往主案件查看整體辦理進度。</p>
                                   {caseData.mergedInto && (<button onClick={() => { const parent = allCases.find(c => c.id === caseData.mergedInto); if (parent) onSelectCase(parent); }} className="mt-2 px-6 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 shadow-sm">前往主案件</button>)}
                              </div>
                         )}
@@ -825,21 +833,17 @@
                                 <div className="md:col-span-2 space-y-1.5 border-t border-slate-100 pt-4 mt-2"><label className="text-sm font-medium text-amber-600 px-1">備註事項 (任何階段皆可修改)</label><textarea rows="2" placeholder="紀錄其他補充事項..." className={`w-full rounded-2xl px-4 py-3 leading-relaxed border-amber-200 bg-amber-50 focus:bg-white`} value={editExtData.note || ''} onChange={e => setEditExtData({...editExtData, note: e.target.value})}></textarea></div>
                             </div>
                             
-                            {}
                             <div className="mt-8 flex gap-4">
                                 {caseData.status !== 'CLOSED' ? (
                                     <>
                                         <button disabled={isSubmitting} onClick={() => handleExtDataReply(caseData.status === 'MERGED' ? 'MERGED' : 'PENDING')} className={`flex-1 py-4 ${isSpecialMode ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'} rounded-2xl font-bold text-base transition-all active:scale-[0.98]`}>{isSubmitting ? '儲存中...' : '僅儲存進度 / 備註'}</button>
-                                        {caseData.status !== 'MERGED' && (
-                                            <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 py-4 ${themeBtn} text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2`}><Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}</button>
-                                        )}
+                                        <button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className={`flex-1 py-4 ${themeBtn} text-white rounded-2xl font-bold text-base shadow-float transition-all active:scale-[0.98] flex justify-center items-center gap-2`}><Icons.Check /> {isSubmitting ? '處理中...' : '儲存並結案'}</button>
                                     </>
                                 ) : (
                                     <div className="mt-8 flex gap-4 flex-col md:flex-row w-full"><button disabled={isSubmitting} onClick={() => handleExtDataReply('CLOSED')} className="flex-1 py-4 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 rounded-2xl font-bold text-base transition-all active:scale-[0.98]">儲存備註變更</button><button disabled={isSubmitting} onClick={handleRevert} className="flex-1 py-4 bg-white border-2 border-slate-100 text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 rounded-2xl font-bold text-base transition-all active:scale-[0.98] flex justify-center items-center gap-2"><Icons.Undo /> 恢復為「辦理中」狀態</button></div>
                                 )}
                             </div>
                         </div>
-                        
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 px-1">系統歷程</h3>
                             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8">
@@ -869,13 +873,16 @@
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
             const [syncStatus, setSyncStatus] = useState('CONNECTING');
+            const [sysModal, setSysModal] = useState({ isOpen: false });
+            
+            const fileInputRef = useRef(null);
 
             useEffect(() => {
                 let unsubscribe = null;
                 const initStandaloneFirebase = async () => {
                     const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
-                    // Note: Preserving the specific Firebase config found in original file
                     const myFirebaseConfig = { apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y", authDomain: "case-data-b9894.firebaseapp.com", projectId: "case-data-b9894" };
                     try {
                         if (!window.fbStandaloneApp) {
@@ -901,7 +908,7 @@
             const config = useMemo(() => ({
                 tabs: [
                     { id: 'PROCESSING', label: '辦理中', icon: Icons.List, filter: c => c.status !== 'CLOSED' && c.status !== 'MERGED' },
-                    { id: 'CLOSED', label: '已結案/併案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' || c.status === 'MERGED' }
+                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' || c.status === 'MERGED' }
                 ]
             }), []);
             const [activeListTab, setActiveListTab] = useState(config.tabs[0].id);
@@ -911,7 +918,6 @@
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 return cases.filter(c => {
                     if (c.extData?.dismissedRecordNotice) return false;
-                    // 只檢查會勘和A1事故是否有取號逾期
                     if (!['SURVEY', 'A1'].includes(c.category)) return false;
                     if (c.status === 'CLOSED' || c.status === 'MERGED' || !c.extData?.recordDeadline || c.extData.recordActualDate) return false; 
                     const deadline = new Date(c.extData.recordDeadline); deadline.setHours(0, 0, 0, 0); 
@@ -1024,8 +1030,77 @@
 
             const totalNotices = overdueCases.length + closingNotices.length;
 
+            const handleExportExcel = () => {
+                const ws = XLSX.utils.json_to_sheet(cases.map(c => ({
+                    '案件編號': c.id,
+                    '案件類型': c.caseType === 'SPECIAL' ? '特殊交辦' : '一般案件',
+                    '案件類別': c.category,
+                    '狀態': c.status === 'CLOSED' ? '已結案' : c.status === 'MERGED' ? '已併案' : '辦理中',
+                    '行政區': c.location?.district || '',
+                    '詳細地點': c.location?.address || '',
+                    '陳情人/主政單位': c.petitioner?.name || '',
+                    '案件內容': c.content || '',
+                    '收文/收件日期': c.extData?.receiveDate || '',
+                    '會勘日期': c.extData?.surveyDate || '',
+                    '派工日期': c.extData?.dispatchDate || '',
+                    '實際結案日期': c.extData?.completionDate || '',
+                    '結案期限': c.extData?.completionDeadline || '',
+                    '承辦人': c.extData?.assignee || '',
+                    '備註': c.extData?.note || ''
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "案件清單");
+                XLSX.writeFile(wb, `案件列管清單_${getLocalISODate()}.xlsx`);
+                setShowSettings(false);
+            };
+
+            const handleExportJSON = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cases, null, 2));
+                const a = document.createElement('a');
+                a.href = dataStr;
+                a.download = `案件備份_${getLocalISODate()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setShowSettings(false);
+            };
+
+            const handleImportJSON = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const importedCases = JSON.parse(event.target.result);
+                        if (Array.isArray(importedCases)) {
+                            const sortedCases = sortCases(importedCases);
+                            setCases(sortedCases);
+                            if (window.fbStandaloneDb) {
+                                const { setDoc, doc } = window.FirebaseModules;
+                                for (const c of sortedCases) {
+                                    await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c);
+                                }
+                            }
+                            setSysModal({
+                                isOpen: true, title: '匯入成功', content: `已成功匯入還原 ${sortedCases.length} 筆案件資料，並已同步至雲端。`,
+                                actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-primary text-white rounded-xl font-bold">確認</button>
+                            });
+                        }
+                    } catch (err) {
+                        setSysModal({
+                            isOpen: true, title: '匯入失敗', content: `檔案格式錯誤，無法正確解析備份檔。`,
+                            actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-red-500 text-white rounded-xl font-bold">確認</button>
+                        });
+                    }
+                };
+                reader.readAsText(file);
+                setShowSettings(false);
+                e.target.value = null; // reset input
+            };
+
             return (
                 <div className="h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row bg-surface">
+                    <Modal {...sysModal} />
                     <aside className="hidden md:flex w-72 bg-white border-r border-slate-100 flex-col shrink-0 z-20">
                         <div className="p-8 pb-4">
                             <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center mb-6 shadow-float"><Icons.Folder /></div>
@@ -1044,11 +1119,11 @@
                     <main className="flex-1 flex flex-col min-w-0 mb-16 md:mb-0 h-full overflow-hidden relative">
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && '案件處理進度'}</h2>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 md:gap-3">
                                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">{syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}{syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}</div>
                                 
                                 <div className="relative">
-                                    <button onClick={() => { setShowNotifications(!showNotifications); }} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
+                                    <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
                                     {showNotifications && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
@@ -1086,6 +1161,25 @@
                                         </>
                                     )}
                                 </div>
+                                
+                                {/* 匯出與設定按鈕 */}
+                                <div className="relative">
+                                    <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }} className={`relative p-3 rounded-2xl transition-all ${showSettings ? 'bg-slate-100 text-slate-700 shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-slate-700 hover:bg-slate-50'}`}>
+                                        <Icons.Menu />
+                                    </button>
+                                    {showSettings && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)}></div>
+                                            <div className="absolute right-0 mt-3 w-52 bg-white rounded-2xl shadow-float border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right flex flex-col p-2 gap-1">
+                                                <button onClick={handleExportExcel} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 font-bold hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"><Icons.FileText /> 匯出清單 (Excel)</button>
+                                                <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                                <button onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 font-bold hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"><Icons.Download /> 下載備份 (JSON)</button>
+                                                <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 font-bold hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-colors"><Icons.Upload /> 匯入還原 (JSON)</button>
+                                                <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportJSON} />
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </header>
                         
@@ -1097,6 +1191,13 @@
                             {view === 'DETAIL' && selectedCase && <CaseDetail caseData={selectedCase} allCases={cases} onBack={() => setView(selectedCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST')} onSelectCase={handleSelectCase} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteCase} onEditHistory={handleEditHistory} onUpdateBasicInfo={handleUpdateBasicInfo} onMergeCase={handleMergeCase} onUnmergeCase={handleUnmergeCase} />}
                         </div>
                     </main>
+                    
+                    {/* 手機版底部導覽列 */}
+                    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 flex justify-around p-2 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                         <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'LIST' ? 'text-primary' : 'text-slate-400'}`}><Icons.List /><span className="text-[10px] font-bold mt-1">一般案件</span></button>
+                         <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-500' : 'text-slate-400'}`}><Icons.Alert /><span className="text-[10px] font-bold mt-1">特殊交辦</span></button>
+                         <button onClick={() => setView('CREATE')} className="flex flex-col items-center p-2 rounded-xl transition-colors text-slate-400 active:text-primary"><div className="w-10 h-10 -mt-6 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-float border-4 border-white"><Icons.Plus /></div><span className="text-[10px] font-bold mt-1">新增案件</span></button>
+                    </nav>
                 </div>
             );
         };
