@@ -113,6 +113,18 @@
             });
         };
 
+        const getDeadlineStatus = (c) => {
+            if (c.status === 'CLOSED' || c.status === 'MERGED') return 'SAFE';
+            if (!c.extData?.completionDeadline) return 'SAFE';
+            const today = new Date(); today.setHours(0,0,0,0);
+            const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0,0,0,0);
+            const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) return 'OVERDUE';
+            if (diffDays <= 15) return 'WARNING';
+            return 'SAFE';
+        };
+
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
@@ -176,36 +188,83 @@
         };
 
         const WarningBadge = ({ caseData }) => {
-            if (caseData.status === 'CLOSED' || caseData.status === 'MERGED') return <span className="text-slate-400 font-bold text-xs">無</span>;
-            if (!caseData.extData?.completionDeadline) return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md font-bold text-xs border border-emerald-100 w-fit whitespace-nowrap flex items-center gap-1">安全期</span>;
+            if (caseData.status === 'CLOSED' || caseData.status === 'MERGED') return <span className="text-slate-400 font-bold text-xs bg-slate-100 px-2 py-1 rounded-md border border-slate-200">無</span>;
             
-            const today = new Date(); today.setHours(0,0,0,0);
-            const deadline = new Date(caseData.extData.completionDeadline); deadline.setHours(0,0,0,0);
-            const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const status = getDeadlineStatus(caseData);
+            if (status === 'OVERDUE') {
+                return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-rose-200"><Icons.Alert /> 已逾期</span>;
+            } else if (status === 'WARNING') {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const deadline = new Date(caseData.extData.completionDeadline); deadline.setHours(0,0,0,0);
+                const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                return <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-amber-200"><Icons.Clock /> 剩 {diffDays} 天</span>;
+            }
             
-            if (diffDays < 0) return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-rose-200"><Icons.Alert /> 已逾期</span>;
-            if (diffDays <= 15) return <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-amber-200"><Icons.Clock /> 剩 {diffDays} 天</span>;
             return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md font-bold text-xs border border-emerald-100 w-fit whitespace-nowrap flex items-center gap-1">安全期</span>;
         };
 
         const getRowStatusClass = (c) => {
             if (c.status === 'CLOSED' || c.status === 'MERGED') return 'hover:bg-slate-50/80 transition-colors';
-            if (!c.extData?.completionDeadline) return 'hover:bg-slate-50/80 transition-colors';
             
-            const today = new Date(); today.setHours(0,0,0,0);
-            const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0,0,0,0);
-            const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const status = getDeadlineStatus(c);
+            if (status === 'OVERDUE') return 'urgent-row hover:bg-rose-50';
+            if (status === 'WARNING') return 'warning-row';
             
-            if (diffDays < 0) return 'urgent-row';
-            if (diffDays <= 15) return 'warning-row';
             return 'hover:bg-slate-50/80 transition-colors';
+        };
+
+        const getDeadlineColor = (c) => {
+             if (c.status === 'CLOSED' || c.status === 'MERGED') return 'text-slate-500';
+             const status = getDeadlineStatus(c);
+             if (status === 'OVERDUE') return 'text-red-600 font-bold';
+             if (status === 'WARNING') return 'text-amber-600 font-bold';
+             return 'text-slate-600';
         };
 
         const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config, isSpecialMode }) => {
             const [filter, setFilter] = useState('');
+            const [subTab, setSubTab] = useState('ALL'); // 辦理中的次分類: ALL, WARNING, OVERDUE
+
             const modeFilteredCases = cases.filter(c => isSpecialMode ? c.caseType === 'SPECIAL' : c.caseType !== 'SPECIAL');
-            const tabFilteredCases = modeFilteredCases.filter(c => config.tabs.find(t => t.id === activeTab)?.filter(c));
             
+            // 計算各主要頁籤數量
+            const counts = {
+                PROCESSING: modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED').length,
+                CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED').length,
+                MERGED: modeFilteredCases.filter(c => c.status === 'MERGED').length
+            };
+
+            // 如果切換主要頁籤，重置子頁籤
+            useEffect(() => {
+                if (activeTab !== 'PROCESSING') setSubTab('ALL');
+            }, [activeTab]);
+
+            // 第一層篩選 (依據主頁籤)
+            let tabFilteredCases = modeFilteredCases.filter(c => {
+                if (activeTab === 'PROCESSING') return c.status !== 'CLOSED' && c.status !== 'MERGED';
+                if (activeTab === 'CLOSED') return c.status === 'CLOSED';
+                if (activeTab === 'MERGED') return c.status === 'MERGED';
+                return true;
+            });
+
+            // 如果是辦理中，進一步依據子頁籤篩選
+            if (activeTab === 'PROCESSING') {
+                if (subTab === 'WARNING') {
+                    tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'WARNING');
+                } else if (subTab === 'OVERDUE') {
+                    tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'OVERDUE');
+                }
+            }
+            
+            // 計算子頁籤數量
+            const processingCases = modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED');
+            const subCounts = {
+                ALL: processingCases.length,
+                WARNING: processingCases.filter(c => getDeadlineStatus(c) === 'WARNING').length,
+                OVERDUE: processingCases.filter(c => getDeadlineStatus(c) === 'OVERDUE').length
+            };
+
+            // 關鍵字篩選
             const filteredCases = tabFilteredCases.filter(c => {
                 const keyword = filter.toLowerCase();
                 return (c.caseNumber && c.caseNumber.toLowerCase().includes(keyword)) ||
@@ -219,20 +278,36 @@
                        (c.extData?.replyDocNo?.toLowerCase().includes(keyword));
             });
 
+            const activeColor = isSpecialMode ? 'bg-red-500 text-white shadow-md' : 'bg-primary text-white shadow-md';
+
             return (
                 <div className="h-full flex flex-col animate-fade-in">
-                    <div className="flex p-1.5 bg-white shadow-soft rounded-2xl w-fit mb-6 mx-auto md:mx-0">
+                    {/* 主頁籤 */}
+                    <div className="flex flex-wrap p-1.5 bg-white shadow-soft rounded-2xl w-fit mb-4 mx-auto md:mx-0">
                         {config.tabs.map(tab => {
                             const isActive = activeTab === tab.id;
-                            const activeColor = isSpecialMode ? 'bg-red-500 text-white shadow-md' : 'bg-primary text-white shadow-md';
-                            const tabCount = modeFilteredCases.filter(tab.filter).length;
                             return (
-                                <button key={tab.id} className={`flex items-center gap-2 px-5 md:px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? activeColor : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} onClick={() => onTabChange(tab.id)}>
-                                    <tab.icon /> {tab.label} <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>{tabCount}</span>
+                                <button key={tab.id} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive ? activeColor : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} onClick={() => onTabChange(tab.id)}>
+                                    <tab.icon /> {tab.label} <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>{counts[tab.id] || 0}</span>
                                 </button>
                             );
                         })}
                     </div>
+
+                    {/* 子頁籤 (僅在辦理中顯示) */}
+                    {activeTab === 'PROCESSING' && (
+                        <div className="flex flex-wrap gap-2 mb-6 mx-auto md:mx-0 animate-fade-in">
+                            <button onClick={() => setSubTab('ALL')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'ALL' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>
+                                全部辦理中 ({subCounts.ALL})
+                            </button>
+                            <button onClick={() => setSubTab('WARNING')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'WARNING' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'}`}>
+                                即將逾期 ({subCounts.WARNING})
+                            </button>
+                            <button onClick={() => setSubTab('OVERDUE')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'OVERDUE' ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'}`}>
+                                已逾期 ({subCounts.OVERDUE})
+                            </button>
+                        </div>
+                    )}
 
                     <div className="relative mb-6">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400"><Icons.Search /></div>
@@ -241,9 +316,9 @@
                             value={filter} onChange={(e) => setFilter(e.target.value)} />
                     </div>
                     
-                    <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft border border-slate-100">
-                        <table className="w-full text-sm text-left relative">
-                            <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur-md z-10 shadow-sm border-b border-slate-100">
+                    <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
                                 <tr>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
                                     <th className="px-4 py-5 font-bold whitespace-nowrap">預警狀態</th>
@@ -264,7 +339,7 @@
                                             <div className="flex flex-col gap-2 items-start">
                                                 <StatusBadge status={c.status} />
                                                 <CategoryBadge category={c.category} />
-                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-300"><Icons.Link/> 已併案</span>}
+                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Link/> 已併案</span>}
                                             </div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap"><WarningBadge caseData={c} /></td>
@@ -293,7 +368,7 @@
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="text-slate-800 font-bold">{c.extData?.completionDate || '-'}</div>
                                             {c.status !== 'CLOSED' && c.status !== 'MERGED' && (
-                                                <div className={`text-xs mt-1 text-slate-400 font-medium`}>({c.extData?.completionDeadline || '無期限'})</div>
+                                                <div className={`text-xs mt-1 ${getDeadlineColor(c)}`}>({c.extData?.completionDeadline || '無期限'})</div>
                                             )}
                                         </td>
                                         <td className="px-4 py-4 text-center">
@@ -316,17 +391,17 @@
                                     <div className="flex flex-col gap-2">
                                         <StatusBadge status={c.status} />
                                         <CategoryBadge category={c.category} />
-                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit border border-slate-300"><Icons.Link/> 已併案</span>}
+                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Icons.Link/> 已併案</span>}
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
-                                        <WarningBadge caseData={c} />
-                                        {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">{c.location.district}</span>}
+                                         <WarningBadge caseData={c} />
+                                         {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>}
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 mb-3">
                                     <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '收文/會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || '-')}</span>
                                     <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
-                                    <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || c.extData?.completionDeadline || '-'}</span>
+                                    <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || <span className={getDeadlineColor(c)}>{c.extData?.completionDeadline || '-'}</span>}</span>
                                 </div>
                                 {isSpecialMode ? (
                                     <>
@@ -370,6 +445,7 @@
                 e.preventDefault(); setIsSubmitting(true);
                 try { 
                     let submitData = { ...formData };
+                    // 函轉建檔自動結案邏輯
                     if (!isSpecialMode && formData.category === 'FORWARD') {
                          submitData.status = 'CLOSED';
                          submitData.extData.completionDate = getLocalISODate();
@@ -599,7 +675,7 @@
             
             const performMerge = (targetCaseId) => {
                 setModalConfig({
-                    isOpen: true, title: '確認併案', content: '併案後，目前這筆案件將會關閉並標示為「已併案」，確定要將它併入所選的主案件嗎？',
+                    isOpen: true, title: '確認併案', content: '併案後，目前這筆案件將會標示為「已併案」狀態，確定要將它併入所選的案件嗎？',
                     actions: (
                         <div className="flex gap-3 mt-4">
                             <button onClick={closeM} className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">取消</button>
@@ -630,6 +706,8 @@
             return (
                 <div className="h-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-fade-in pb-20 md:pb-0">
                     <Modal {...modalConfig} />
+                    
+                    {/* 左側 - 基本資訊區塊 */}
                     <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2 text-sm">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100">
                             <div className="flex justify-between items-center mb-6">
@@ -639,7 +717,6 @@
                             <div className="flex flex-wrap items-center gap-3 mb-6">
                                 <StatusBadge status={caseData.status} />
                                 <CategoryBadge category={caseData.category} />
-                                <WarningBadge caseData={caseData} />
                                 {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide border border-slate-200">{caseData.location.district}</span>}
                             </div>
                             
@@ -754,8 +831,8 @@
                         {caseData.status === 'MERGED' && (
                              <div className="bg-slate-100 border-2 border-slate-300 p-8 rounded-3xl flex flex-col items-center justify-center text-center gap-4">
                                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-slate-400 shadow-sm"><Icons.Link /></div>
-                                  <h3 className="text-xl font-bold text-slate-700">此案件已併入其他案件</h3>
-                                  <p className="text-slate-500 text-sm max-w-md">本案件目前為子案件狀態。您仍可更新進度與備註，但建議前往主案件查看整體辦理進度。</p>
+                                  <h3 className="text-xl font-bold text-slate-700">此案件已被併入其他案件</h3>
+                                  <p className="text-slate-500 text-sm max-w-md">您仍可更新進度與備註，但建議前往主案件查看整體辦理進度。</p>
                                   {caseData.mergedInto && (<button onClick={() => { const parent = allCases.find(c => c.id === caseData.mergedInto); if (parent) onSelectCase(parent); }} className="mt-2 px-6 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 shadow-sm">前往主案件</button>)}
                              </div>
                         )}
@@ -844,6 +921,7 @@
                                 )}
                             </div>
                         </div>
+                        
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 px-1">系統歷程</h3>
                             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8">
@@ -852,7 +930,7 @@
                                         <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-200 border-4 border-white"></div>
                                         <div className="flex flex-wrap items-baseline justify-between mb-1.5">
                                             <div className="flex gap-x-3 items-baseline"><span className="font-bold text-slate-700">{item.author}</span><span className="text-xs font-medium text-slate-400">{item.date}</span></div>
-                                            {caseData.status !== 'CLOSED' && editingHistoryIdx !== idx && (<button onClick={() => { setEditingHistoryIdx(idx); setEditingHistoryContent(item.content); }} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 hover:underline bg-indigo-50 px-2 py-1 rounded"><Icons.Edit /> 修改</button>)}
+                                            {caseData.status !== 'CLOSED' && caseData.status !== 'MERGED' && editingHistoryIdx !== idx && (<button onClick={() => { setEditingHistoryIdx(idx); setEditingHistoryContent(item.content); }} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 hover:underline bg-indigo-50 px-2 py-1 rounded"><Icons.Edit /> 修改</button>)}
                                         </div>
                                         {editingHistoryIdx === idx ? (
                                             <div className="bg-slate-50 p-4 rounded-2xl w-full border border-indigo-200 shadow-inner mt-2"><textarea className="w-full rounded-xl px-3 py-2 border border-slate-200 focus:ring-4 focus:ring-indigo-500/20 bg-white text-slate-700 leading-relaxed min-h-[80px] text-sm" value={editingHistoryContent} onChange={(e) => setEditingHistoryContent(e.target.value)} /><div className="flex gap-2 justify-end mt-3"><button onClick={() => setEditingHistoryIdx(null)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button><button onClick={() => { onEditHistory(caseData.id, idx, editingHistoryContent); setEditingHistoryIdx(null); }} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button></div></div>
@@ -908,9 +986,11 @@
             const config = useMemo(() => ({
                 tabs: [
                     { id: 'PROCESSING', label: '辦理中', icon: Icons.List, filter: c => c.status !== 'CLOSED' && c.status !== 'MERGED' },
-                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' || c.status === 'MERGED' }
+                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' },
+                    { id: 'MERGED', label: '已併案', icon: Icons.Link, filter: c => c.status === 'MERGED' }
                 ]
             }), []);
+            
             const [activeListTab, setActiveListTab] = useState(config.tabs[0].id);
             const handleSelectCase = (c) => { setSelectedCase(c); setView('DETAIL'); };
 
@@ -1162,7 +1242,6 @@
                                     )}
                                 </div>
                                 
-                                {/* 匯出與設定按鈕 */}
                                 <div className="relative">
                                     <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }} className={`relative p-3 rounded-2xl transition-all ${showSettings ? 'bg-slate-100 text-slate-700 shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-slate-700 hover:bg-slate-50'}`}>
                                         <Icons.Menu />
