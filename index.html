@@ -230,8 +230,7 @@
             // 計算各主要頁籤數量
             const counts = {
                 PROCESSING: modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED').length,
-                CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED').length,
-                MERGED: modeFilteredCases.filter(c => c.status === 'MERGED').length
+                CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED' || c.status === 'MERGED').length
             };
 
             // 如果切換主要頁籤，重置子頁籤
@@ -242,8 +241,7 @@
             // 第一層篩選 (依據主頁籤)
             let tabFilteredCases = modeFilteredCases.filter(c => {
                 if (activeTab === 'PROCESSING') return c.status !== 'CLOSED' && c.status !== 'MERGED';
-                if (activeTab === 'CLOSED') return c.status === 'CLOSED';
-                if (activeTab === 'MERGED') return c.status === 'MERGED';
+                if (activeTab === 'CLOSED') return c.status === 'CLOSED' || c.status === 'MERGED';
                 return true;
             });
 
@@ -986,8 +984,7 @@
             const config = useMemo(() => ({
                 tabs: [
                     { id: 'PROCESSING', label: '辦理中', icon: Icons.List, filter: c => c.status !== 'CLOSED' && c.status !== 'MERGED' },
-                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' },
-                    { id: 'MERGED', label: '已併案', icon: Icons.Link, filter: c => c.status === 'MERGED' }
+                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' || c.status === 'MERGED' }
                 ]
             }), []);
             
