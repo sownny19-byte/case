@@ -101,6 +101,7 @@
         ]).then(([app, auth, firestore]) => {
             window.FirebaseModules = {
                 initializeApp: app.initializeApp, getAuth: auth.getAuth, signInAnonymously: auth.signInAnonymously,
+                initializeFirestore: firestore.initializeFirestore, persistentLocalCache: firestore.persistentLocalCache,
                 getFirestore: firestore.getFirestore, collection: firestore.collection, doc: firestore.doc,
                 setDoc: firestore.setDoc, deleteDoc: firestore.deleteDoc, onSnapshot: firestore.onSnapshot, getDoc: firestore.getDoc
             };
@@ -1352,12 +1353,17 @@
             useEffect(() => {
                 let unsubscribe = null;
                 const initStandaloneFirebase = async () => {
-                    const { initializeApp, getFirestore, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
+                    const { initializeApp, initializeFirestore, persistentLocalCache, collection, onSnapshot, doc, setDoc, getDoc, getAuth, signInAnonymously } = window.FirebaseModules;
                     const myFirebaseConfig = { apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y", authDomain: "case-data-b9894.firebaseapp.com", projectId: "case-data-b9894" };
                     try {
                         if (!window.fbStandaloneApp) {
                             window.fbStandaloneApp = initializeApp(myFirebaseConfig, "App" + Date.now());
-                            window.fbStandaloneDb = getFirestore(window.fbStandaloneApp);
+                            
+                            // 啟用 Firestore 離線快取機制，大幅減少雲端讀取次數
+                            window.fbStandaloneDb = initializeFirestore(window.fbStandaloneApp, {
+                                localCache: persistentLocalCache()
+                            });
+                            
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
                         try { await signInAnonymously(window.fbAuth); } catch (e) {}
