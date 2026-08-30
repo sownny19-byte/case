@@ -13,6 +13,15 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Leaflet CSS & JS (取代 MapLibre，徹底解決跨網域錯誤) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet.markercluster 叢集擴充套件 (解決重疊地標) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
     <!-- Excel 匯出庫 (SheetJS) -->
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
@@ -55,6 +64,33 @@
         }
         .warning-row { background-color: rgba(254, 243, 199, 0.7); transition: background-color 0.3s; }
         .warning-row:hover { background-color: rgba(254, 243, 199, 1); }
+
+        /* 客製化 Leaflet Tooltip 以符合 Tailwind 風格 */
+        .leaflet-tooltip {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .leaflet-tooltip-top:before { border-top-color: rgba(255, 255, 255, 0.95); }
+        .leaflet-control-attribution { display: none; }
+        
+        .custom-cluster-icon {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            font-weight: 900;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            border: 3px solid white;
+            font-size: 15px;
+            transition: transform 0.2s ease;
+        }
+        .custom-cluster-icon:hover { transform: scale(1.1); }
     </style>
 
     <script>
@@ -78,6 +114,22 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
+
+        const DISTRICT_COORDS = {
+            '桃園區': { lat: 24.9936, lng: 121.3009 },
+            '中壢區': { lat: 24.9631, lng: 121.2238 },
+            '平鎮區': { lat: 24.9458, lng: 121.2183 },
+            '八德區': { lat: 24.9295, lng: 121.2826 },
+            '楊梅區': { lat: 24.9150, lng: 121.1462 },
+            '蘆竹區': { lat: 25.0454, lng: 121.2882 },
+            '大溪區': { lat: 24.8805, lng: 121.2868 },
+            '龜山區': { lat: 24.9958, lng: 121.3389 },
+            '大園區': { lat: 25.0645, lng: 121.1973 },
+            '觀音區': { lat: 25.0333, lng: 121.0789 },
+            '新屋區': { lat: 24.9722, lng: 121.1061 },
+            '龍潭區': { lat: 24.8638, lng: 121.2125 },
+            '復興區': { lat: 24.8150, lng: 121.3475 }
+        };
 
         const getLocalISODate = (date = new Date()) => {
             if (!date || isNaN(new Date(date).getTime())) return '';
@@ -125,6 +177,46 @@
             return 'SAFE';
         };
 
+        const advancedGeocode = async (district, address) => {
+            if (!address) return null;
+            const tryFetch = async (query) => {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+                try {
+                    const response = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+                    const data = await response.json();
+                    if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                } catch (error) { console.error("Geocoding Error:", error); }
+                return null;
+            };
+
+            // 1. 嘗試完整地址
+            let res = await tryFetch(`桃園市${district}${address}`);
+            if (res) return res;
+
+            // 2. 清理常見干擾詞 (附近, 交叉口, 路口)
+            let cleanAddr = address.replace(/與.*?[路街]口/g, '').replace(/[前後旁]|附近|交叉口/g, '').trim();
+            if (cleanAddr !== address && cleanAddr.length > 0) {
+                res = await tryFetch(`桃園市${district}${cleanAddr}`);
+                if (res) return res;
+            }
+
+            // 3. 強化：放棄巷弄以後的細節，只搜到「號」
+            const numMatch = cleanAddr.match(/^.+?[路街大道巷弄].+?號/);
+            if (numMatch && numMatch[0] !== cleanAddr) {
+                res = await tryFetch(`桃園市${district}${numMatch[0]}`);
+                if (res) return res;
+            }
+
+            // 4. 終極退避：只搜尋主要道路 (段/路/街/大道)
+            const roadMatch = cleanAddr.match(/^.+?[路街大道]/);
+            if (roadMatch && roadMatch[0] !== cleanAddr) {
+                res = await tryFetch(`桃園市${district}${roadMatch[0]}`);
+                if (res) return res;
+            }
+
+            return null;
+        };
+
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
@@ -145,7 +237,8 @@
             Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>,
             Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
             Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
-            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
+            MapIcon: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
         };
 
         const Modal = ({ isOpen, title, content, actions }) => {
@@ -221,31 +314,183 @@
              return 'text-slate-600';
         };
 
+        // 微型可拖曳地圖定位器元件
+        const LocationPicker = ({ lat, lng, onChange }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markerRef = useRef(null);
+
+            useEffect(() => {
+                if (!mapRef.current) return;
+                
+                if (!mapInstanceRef.current) {
+                    // 設定 maxZoom 為 16 以配合 ESRI 圖磚的極限
+                    const map = L.map(mapRef.current, { maxZoom: 16 }).setView([lat, lng], 16);
+                    
+                    // 使用 ESRI 乾淨底圖 (完全免費無需 API Key，移除宮廟店家等多餘地標)
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { 
+                        maxZoom: 16, attribution: '&copy; Esri'
+                    }).addTo(map);
+                    
+                    // 疊加路名標籤層
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { 
+                        maxZoom: 16
+                    }).addTo(map);
+
+                    const iconHtml = `<div style="width: 24px; height: 24px; background-color: #ef4444; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4);"></div>`;
+                    const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+
+                    const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map);
+                    
+                    marker.on('dragend', () => {
+                        const pos = marker.getLatLng();
+                        onChange(pos.lat, pos.lng);
+                    });
+
+                    mapInstanceRef.current = map;
+                    markerRef.current = marker;
+
+                    setTimeout(() => map.invalidateSize(), 300);
+                } else {
+                    mapInstanceRef.current.setView([lat, lng], 16);
+                    markerRef.current.setLatLng([lat, lng]);
+                }
+            }, [lat, lng]);
+
+            return <div ref={mapRef} className="w-full h-full z-0"></div>;
+        };
+
+        // Leaflet 案件空間分布地圖元件 (支援 MarkerCluster 重疊聚合)
+        const CaseMap = ({ cases, onSelectCase }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markersLayerRef = useRef(null);
+
+            const activeCases = useMemo(() => {
+                return cases.filter(c => 
+                    c.status !== 'CLOSED' && c.status !== 'MERGED' && c.caseType !== 'SPECIAL'
+                ).map(c => {
+                    if (!c.location?.lat || !c.location?.lng) {
+                        const fallback = DISTRICT_COORDS[c.location?.district];
+                        if (fallback) {
+                            let hash = 0;
+                            const idStr = c.id || '';
+                            for (let i = 0; i < idStr.length; i++) hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+                            const offsetLat = (Math.abs(Math.sin(hash)) - 0.5) * 0.025;
+                            const offsetLng = (Math.abs(Math.cos(hash)) - 0.5) * 0.025;
+                            return { ...c, location: { ...c.location, lat: fallback.lat + offsetLat, lng: fallback.lng + offsetLng, isFallback: true } };
+                        }
+                    }
+                    return c;
+                }).filter(c => c.location?.lat && c.location?.lng);
+            }, [cases]);
+
+            useEffect(() => {
+                if (!mapRef.current) return;
+
+                if (!mapInstanceRef.current) {
+                    // 設定 maxZoom 為 16
+                    const map = L.map(mapRef.current, { maxZoom: 16 }).setView([24.9631, 121.2238], 12);
+                    
+                    // 使用 ESRI 乾淨底圖 (完全免費無需 API Key，移除宮廟店家等多餘地標)
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 16, attribution: '© Esri'
+                    }).addTo(map);
+                    
+                    // 疊加路名標籤層
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 16
+                    }).addTo(map);
+
+                    mapInstanceRef.current = map;
+                    
+                    markersLayerRef.current = L.markerClusterGroup({
+                        maxClusterRadius: 45,
+                        spiderfyOnMaxZoom: true,
+                        disableClusteringAtZoom: 15,
+                        iconCreateFunction: function(cluster) {
+                            return L.divIcon({
+                                html: `<div style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; font-weight: 900; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(99,102,241,0.4); border: 3px solid white; font-size: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${cluster.getChildCount()}</div>`,
+                                className: 'custom-cluster-icon',
+                                iconSize: [44, 44]
+                            });
+                        }
+                    }).addTo(map);
+                }
+
+                markersLayerRef.current.clearLayers();
+                const newMarkers = [];
+
+                activeCases.forEach(c => {
+                    let color = '#6366f1'; // 預設會勘顏色
+                    if (c.category === 'A1') color = '#ef4444';
+                    else if (c.category === 'REPLY') color = '#06b6d4';
+                    else if (c.category === 'TEMP') color = '#f97316';
+                    else if (c.category === 'OTHER_UNIT') color = '#3b82f6';
+
+                    // 美化單點標記
+                    const markerHtml = `<div style="width: 24px; height: 24px; background: ${color}; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
+                    const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+                    const marker = L.marker([c.location.lat, c.location.lng], { icon });
+                    
+                    // 美化地圖 Hover Tooltip 彈出框
+                    const tooltipContent = `
+                        <div style="min-width: 200px;">
+                            <div style="font-size: 11px; font-weight: 900; color: ${color}; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <div style="width:8px; height:8px; border-radius:50%; background-color:${color};"></div>
+                                ${c.category === 'SURVEY' ? '會勘' : c.category === 'A1' ? 'A1事故' : '一般案件'}
+                                ${c.location.isFallback ? '<span style="background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 6px; margin-left: auto; font-size: 10px;">概略位置</span>' : ''}
+                            </div>
+                            <div style="font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 6px; line-height: 1.3;">${c.location.address}</div>
+                            <div style="font-size: 13px; color: #64748b; max-width: 240px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; background: #f8fafc; padding: 6px; border-radius: 8px;">${c.content}</div>
+                            <div style="margin-top: 8px; font-size: 12px; color: ${color}; font-weight: bold; background: ${color}15; padding: 6px 8px; border-radius: 8px; text-align: center;">點擊查看詳情 👉</div>
+                        </div>
+                    `;
+
+                    marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -12], opacity: 1, className: 'custom-tooltip shadow-float border-0 rounded-xl' });
+                    marker.on('click', () => onSelectCase(c));
+                    newMarkers.push(marker);
+                });
+                
+                markersLayerRef.current.addLayers(newMarkers);
+                setTimeout(() => mapInstanceRef.current.invalidateSize(), 300);
+            }, [activeCases, onSelectCase]);
+
+            return (
+                <div className="h-full flex flex-col animate-fade-in bg-white rounded-3xl shadow-soft p-4 md:p-6 border border-slate-100">
+                    <div className="flex justify-between items-center mb-4 pl-2">
+                        <div>
+                            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icons.MapIcon /> 案件空間分布</h3>
+                            <p className="text-sm text-slate-400 mt-1 font-medium">乾淨街道地圖，已濾除店家與宮廟等干擾標示</p>
+                        </div>
+                        <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold border border-indigo-100">地圖案件數：{activeCases.length}</span>
+                    </div>
+                    <div ref={mapRef} className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 z-0 relative"></div>
+                </div>
+            );
+        };
+
         const CaseList = ({ cases, onSelectCase, activeTab, onTabChange, config, isSpecialMode }) => {
             const [filter, setFilter] = useState('');
-            const [subTab, setSubTab] = useState('ALL'); // 辦理中的次分類: ALL, WARNING, OVERDUE
+            const [subTab, setSubTab] = useState('ALL');
 
             const modeFilteredCases = cases.filter(c => isSpecialMode ? c.caseType === 'SPECIAL' : c.caseType !== 'SPECIAL');
             
-            // 計算各主要頁籤數量
             const counts = {
                 PROCESSING: modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED').length,
                 CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED' || c.status === 'MERGED').length
             };
 
-            // 如果切換主要頁籤，重置子頁籤
             useEffect(() => {
                 if (activeTab !== 'PROCESSING') setSubTab('ALL');
             }, [activeTab]);
 
-            // 第一層篩選 (依據主頁籤)
             let tabFilteredCases = modeFilteredCases.filter(c => {
                 if (activeTab === 'PROCESSING') return c.status !== 'CLOSED' && c.status !== 'MERGED';
                 if (activeTab === 'CLOSED') return c.status === 'CLOSED' || c.status === 'MERGED';
                 return true;
             });
 
-            // 如果是辦理中，進一步依據子頁籤篩選
             if (activeTab === 'PROCESSING') {
                 if (subTab === 'WARNING') {
                     tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'WARNING');
@@ -254,7 +499,6 @@
                 }
             }
             
-            // 計算子頁籤數量
             const processingCases = modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED');
             const subCounts = {
                 ALL: processingCases.length,
@@ -262,7 +506,6 @@
                 OVERDUE: processingCases.filter(c => getDeadlineStatus(c) === 'OVERDUE').length
             };
 
-            // 關鍵字篩選
             const filteredCases = tabFilteredCases.filter(c => {
                 const keyword = filter.toLowerCase();
                 return (c.caseNumber && c.caseNumber.toLowerCase().includes(keyword)) ||
@@ -280,7 +523,6 @@
 
             return (
                 <div className="h-full flex flex-col animate-fade-in">
-                    {/* 主頁籤 */}
                     <div className="flex flex-wrap p-1.5 bg-white shadow-soft rounded-2xl w-fit mb-4 mx-auto md:mx-0">
                         {config.tabs.map(tab => {
                             const isActive = activeTab === tab.id;
@@ -292,7 +534,6 @@
                         })}
                     </div>
 
-                    {/* 子頁籤 (僅在辦理中顯示) */}
                     {activeTab === 'PROCESSING' && (
                         <div className="flex flex-wrap gap-2 mb-6 mx-auto md:mx-0 animate-fade-in">
                             <button onClick={() => setSubTab('ALL')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'ALL' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>
@@ -381,7 +622,6 @@
                         )}
                     </div>
 
-                    {/* Mobile View */}
                     <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
                         {filteredCases.map(c => (
                             <div key={c.id} className={`${getRowStatusClass(c)} bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
@@ -437,17 +677,48 @@
                 }
             });
 
+            const [coords, setCoords] = useState(DISTRICT_COORDS['桃園區']);
+            const [isLocating, setIsLocating] = useState(false);
+            const [userDragged, setUserDragged] = useState(false);
+
+            useEffect(() => {
+                if (isSpecialMode || !formData.address) return;
+                if (userDragged) return;
+                
+                const timer = setTimeout(async () => {
+                    setIsLocating(true);
+                    const newCoords = await advancedGeocode(formData.district, formData.address);
+                    if (newCoords) {
+                        setCoords(newCoords);
+                    } else if (!userDragged) {
+                        setCoords(DISTRICT_COORDS[formData.district] || DISTRICT_COORDS['桃園區']);
+                    }
+                    setIsLocating(false);
+                }, 800);
+                return () => clearTimeout(timer);
+            }, [formData.address, formData.district, isSpecialMode, userDragged]);
+
             const handleExtData = (f, v) => setFormData(p => ({ ...p, extData: { ...p.extData, [f]: v } }));
             
             const handleSubmit = async (e) => {
                 e.preventDefault(); setIsSubmitting(true);
                 try { 
                     let submitData = { ...formData };
-                    // 函轉建檔自動結案邏輯
                     if (!isSpecialMode && formData.category === 'FORWARD') {
                          submitData.status = 'CLOSED';
                          submitData.extData.completionDate = getLocalISODate();
                     }
+
+                    if (!isSpecialMode) {
+                        submitData.location = { 
+                            district: submitData.district, 
+                            address: submitData.address, 
+                            lat: coords.lat, 
+                            lng: coords.lng,
+                            isFallback: !userDragged && coords.lat === DISTRICT_COORDS[submitData.district]?.lat 
+                        };
+                    }
+
                     await onSubmit(submitData); 
                 } catch (err) { console.warn(err); } finally { setIsSubmitting(false); }
             };
@@ -521,11 +792,21 @@
                                             )}
                                             <div className="space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">行政區</label>
-                                                <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
+                                                <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.district} onChange={e => { setFormData({...formData, district: e.target.value}); setUserDragged(false); }}>
                                                     {TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
                                                 </select>
                                             </div>
-                                            <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label><input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} /></div>
+                                            <div className="md:col-span-2 space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
+                                                <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => { setFormData({...formData, address: e.target.value}); setUserDragged(false); }} />
+                                                
+                                                <div className="mt-3 relative rounded-2xl overflow-hidden border border-slate-200 h-48 w-full shadow-inner">
+                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm text-slate-600 flex items-center gap-2">
+                                                        {isLocating ? <span className="animate-pulse text-indigo-500">自動定位中...</span> : '📍 若定位不準，可直接拖曳紅點微調位置'}
+                                                    </div>
+                                                    <LocationPicker lat={coords.lat} lng={coords.lng} onChange={(lat,lng) => { setCoords({lat,lng}); setUserDragged(true); }} />
+                                                </div>
+                                            </div>
                                             <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">陳情內容</label><textarea required rows="4" className={`w-full rounded-3xl px-4 py-4 leading-relaxed focus:ring-4 ${themeRing}`} placeholder="簡述案件狀況..." value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})}></textarea></div>
                                         </>
                                     )}
@@ -608,14 +889,15 @@
             const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
             const [editingHistoryContent, setEditingHistoryContent] = useState('');
 
-            // Basic Info Edit States
             const [isEditingAddress, setEditingAddress] = useState(false);
             const [editedAddress, setEditedAddress] = useState('');
             const [editedDistrict, setEditedDistrict] = useState('');
+            const [editCoords, setEditCoords] = useState({ lat: 24.9936, lng: 121.3009 });
+            const [userDragged, setUserDragged] = useState(false);
+
             const [isEditingContent, setEditingContent] = useState(false);
             const [editedContent, setEditedContent] = useState('');
             
-            // Merge Feature State
             const [showMergePanel, setShowMergePanel] = useState(false);
             const [mergeSearchText, setMergeSearchText] = useState('');
 
@@ -627,11 +909,28 @@
             useEffect(() => {
                 setEditedAddress(caseData.location?.address || '');
                 setEditedDistrict(caseData.location?.district || '桃園區');
+                setEditCoords({ 
+                    lat: caseData.location?.lat || DISTRICT_COORDS[caseData.location?.district]?.lat || 24.9936, 
+                    lng: caseData.location?.lng || DISTRICT_COORDS[caseData.location?.district]?.lng || 121.2238 
+                });
+                setUserDragged(false);
+
                 setEditedContent(caseData.content || '');
                 setEditExtData({
                     receiveDate: caseData.extData?.receiveDate || '', surveyDate: caseData.extData?.surveyDate || '', recordDeadline: caseData.extData?.recordDeadline || '', recordActualDate: caseData.extData?.recordActualDate || '', recordDocNo: caseData.extData?.recordDocNo || '', surveyResolution: caseData.extData?.surveyResolution || '', dispatchDate: caseData.extData?.dispatchDate || '', completionDate: caseData.extData?.completionDate || '', completionDeadline: caseData.extData?.completionDeadline || '', noDispatchRequired: caseData.extData?.noDispatchRequired || false, assignDate: caseData.extData?.assignDate || '', handlingStatus: caseData.extData?.handlingStatus || '', assignee: caseData.extData?.assignee || '', replyDate: caseData.extData?.replyDate || '', replyDocNo: caseData.extData?.replyDocNo || '', replyContent: caseData.extData?.replyContent || '', note: caseData.extData?.note || '', forwardUnit: caseData.extData?.forwardUnit || ''
                 });
             }, [caseData.id, caseData]); 
+
+            useEffect(() => {
+                if (!isEditingAddress || !editedAddress) return;
+                if (userDragged) return;
+                
+                const timer = setTimeout(async () => {
+                    const newCoords = await advancedGeocode(editedDistrict, editedAddress);
+                    if (newCoords) setEditCoords(newCoords);
+                }, 800);
+                return () => clearTimeout(timer);
+            }, [editedAddress, editedDistrict, isEditingAddress, userDragged]);
 
             const closeM = () => setModalConfig({ isOpen: false });
 
@@ -668,7 +967,19 @@
                 });
             };
 
-            const handleSaveAddress = () => { onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress, district: editedDistrict } }); setEditingAddress(false); };
+            const handleSaveAddress = () => { 
+                onUpdateBasicInfo(caseData.id, { 
+                    location: { 
+                        ...caseData.location, 
+                        address: editedAddress, 
+                        district: editedDistrict,
+                        lat: editCoords.lat,
+                        lng: editCoords.lng,
+                        isFallback: false
+                    } 
+                }); 
+                setEditingAddress(false); 
+            };
             const handleSaveContent = () => { onUpdateBasicInfo(caseData.id, { content: editedContent }); setEditingContent(false); };
             
             const performMerge = (targetCaseId) => {
@@ -705,7 +1016,6 @@
                 <div className="h-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-fade-in pb-20 md:pb-0">
                     <Modal {...modalConfig} />
                     
-                    {/* 左側 - 基本資訊區塊 */}
                     <div className="w-full xl:w-5/12 flex flex-col gap-6 overflow-y-auto pr-2 text-sm">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100">
                             <div className="flex justify-between items-center mb-6">
@@ -725,18 +1035,25 @@
                                 </>
                             ) : (
                                 <>
-                                    <div className="group relative flex items-center justify-between mb-2 min-h-[3rem]">
+                                    <div className="group relative flex items-start justify-between mb-4 min-h-[3rem]">
                                         {isEditingAddress ? (
-                                            <div className="flex-1 flex flex-col md:flex-row gap-2 items-start md:items-center mr-2">
-                                                <select className="w-full md:w-auto rounded-xl px-3 py-1.5 border border-slate-300 font-bold text-slate-700 bg-white" value={editedDistrict} onChange={e => setEditedDistrict(e.target.value)}>{TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}</select>
-                                                <input type="text" className="w-full rounded-xl px-3 py-1.5 border border-slate-300 text-lg md:text-2xl font-black text-slate-800" value={editedAddress} onChange={e => setEditedAddress(e.target.value)} autoFocus />
-                                                <div className="flex gap-1 shrink-0 mt-2 md:mt-0 self-end md:self-auto"><button onClick={() => { setEditingAddress(false); setEditedAddress(caseData.location?.address || ''); setEditedDistrict(caseData.location?.district || '桃園區'); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button><button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg"><Icons.Check /></button></div>
+                                            <div className="flex-1 flex flex-col gap-3 mr-2 animate-fade-in w-full">
+                                                <div className="flex flex-col md:flex-row gap-2 items-start md:items-center w-full">
+                                                    <select className="w-full md:w-32 rounded-xl px-3 py-2 border border-slate-300 font-bold text-slate-700 bg-white" value={editedDistrict} onChange={e => { setEditedDistrict(e.target.value); setUserDragged(false); }}>{TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                                    <input type="text" className="w-full flex-1 rounded-xl px-3 py-2 border border-slate-300 text-lg md:text-xl font-black text-slate-800" value={editedAddress} onChange={e => { setEditedAddress(e.target.value); setUserDragged(false); }} autoFocus />
+                                                    <div className="flex gap-1 shrink-0 mt-2 md:mt-0 self-end md:self-auto"><button onClick={() => { setEditingAddress(false); setEditedAddress(caseData.location?.address || ''); setEditedDistrict(caseData.location?.district || '桃園區'); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button><button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg"><Icons.Check /></button></div>
+                                                </div>
+                                                <div className="w-full relative h-40 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 px-2 py-1 rounded-md text-xs font-bold text-slate-600 shadow-sm">📍 拖曳紅點微調精準位置</div>
+                                                    <LocationPicker lat={editCoords.lat} lng={editCoords.lng} onChange={(lat, lng) => { setEditCoords({lat, lng}); setUserDragged(true); }} />
+                                                </div>
                                             </div>
                                         ) : (
-                                            <>
+                                            <div className="flex-1">
                                                 <h2 className="text-2xl font-black text-slate-800 leading-snug pr-8 break-all">{caseData.location?.address}</h2>
-                                                {caseData.status !== 'CLOSED' && (<button onClick={() => setEditingAddress(true)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>)}
-                                            </>
+                                                {caseData.location?.isFallback && <span className="inline-block mt-2 text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 rounded-md font-bold">概略位置，點擊修改進行精準定位</span>}
+                                                {caseData.status !== 'CLOSED' && (<button onClick={() => setEditingAddress(true)} className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改定位</button>)}
+                                            </div>
                                         )}
                                     </div>
                                     <p className="text-slate-400 font-medium mb-8">
@@ -824,7 +1141,6 @@
                         )}
                     </div>
                     
-                    {/* 右側 - 進度與歷程區塊 */}
                     <div className="w-full xl:w-7/12 flex flex-col gap-6 overflow-y-auto pr-2">
                         {caseData.status === 'MERGED' && (
                              <div className="bg-slate-100 border-2 border-slate-300 p-8 rounded-3xl flex flex-col items-center justify-center text-center gap-4">
@@ -1033,7 +1349,7 @@
                 const caseId = "CASE" + Date.now().toString() + Math.random().toString(36).substring(2, 6);
                 const caseRecord = {
                     id: caseId, caseNumber: newCase.caseNumber || caseId, category: newCase.category || 'OTHER', caseType: newCase.caseType || 'NORMAL',
-                    petitioner: { name: newCase.name || '' }, location: { district: newCase.district || '', address: newCase.address || '' },
+                    petitioner: { name: newCase.name || '' }, location: { district: newCase.location?.district || '', address: newCase.location?.address || '', lat: newCase.location?.lat, lng: newCase.location?.lng, isFallback: newCase.location?.isFallback },
                     content: newCase.content || '', status: newCase.status || 'PENDING', createdAt: getLocalISODate(),
                     history: [{ date: getLocalISODate(), author: `系統`, content: '案件建立', type: 'USER' }], extData: newCase.extData || {}
                 };
@@ -1172,7 +1488,7 @@
                 };
                 reader.readAsText(file);
                 setShowSettings(false);
-                e.target.value = null; // reset input
+                e.target.value = null;
             };
 
             return (
@@ -1185,6 +1501,7 @@
                         </div>
                         <nav className="flex-1 p-5 space-y-3 mt-2">
                             <button onClick={() => setView('LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'LIST' ? 'bg-indigo-50 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icons.List /> 案件清單</button>
+                            <button onClick={() => setView('MAP')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'MAP' ? 'bg-indigo-50 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icons.MapIcon /> 地圖檢視</button>
                             <button onClick={() => setView('SPECIAL_LIST')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm ${view === 'SPECIAL_LIST' ? 'bg-red-500 text-white shadow-md' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}><Icons.Alert /> 特殊交辦案件</button>
                         </nav>
                         <div className="p-6 pb-8 space-y-3">
@@ -1195,7 +1512,7 @@
                     
                     <main className="flex-1 flex flex-col min-w-0 mb-16 md:mb-0 h-full overflow-hidden relative">
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && '案件處理進度'}</h2>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && '案件處理進度'}{view === 'MAP' && '案件空間分布'}</h2>
                             <div className="flex items-center gap-2 md:gap-3">
                                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">{syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}{syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}</div>
                                 
@@ -1260,6 +1577,7 @@
                         </header>
                         
                         <div className="flex-1 px-4 md:px-10 pb-4 md:pb-10 overflow-hidden flex flex-col">
+                            {view === 'MAP' && <CaseMap cases={cases} onSelectCase={handleSelectCase} />}
                             {view === 'LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={false} />}
                             {view === 'SPECIAL_LIST' && <CaseList cases={cases} onSelectCase={handleSelectCase} activeTab={activeListTab} onTabChange={setActiveListTab} config={config} isSpecialMode={true} />}
                             {view === 'CREATE' && <CaseForm onSubmit={handleCreateCase} onCancel={() => setView('LIST')} isSpecialMode={false} />}
@@ -1271,8 +1589,9 @@
                     {/* 手機版底部導覽列 */}
                     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 flex justify-around p-2 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
                          <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'LIST' ? 'text-primary' : 'text-slate-400'}`}><Icons.List /><span className="text-[10px] font-bold mt-1">一般案件</span></button>
-                         <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-500' : 'text-slate-400'}`}><Icons.Alert /><span className="text-[10px] font-bold mt-1">特殊交辦</span></button>
+                         <button onClick={() => setView('MAP')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'MAP' ? 'text-primary' : 'text-slate-400'}`}><Icons.MapIcon /><span className="text-[10px] font-bold mt-1">地圖</span></button>
                          <button onClick={() => setView('CREATE')} className="flex flex-col items-center p-2 rounded-xl transition-colors text-slate-400 active:text-primary"><div className="w-10 h-10 -mt-6 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-float border-4 border-white"><Icons.Plus /></div><span className="text-[10px] font-bold mt-1">新增案件</span></button>
+                         <button onClick={() => setView('SPECIAL_LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'SPECIAL_LIST' ? 'text-red-500' : 'text-slate-400'}`}><Icons.Alert /><span className="text-[10px] font-bold mt-1">特殊交辦</span></button>
                     </nav>
                 </div>
             );
