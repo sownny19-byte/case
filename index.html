@@ -303,7 +303,7 @@
              if (status === 'WARNING') return 'text-amber-600 font-bold';
              return 'text-slate-600';
         };
-
+        // 微型可拖曳地圖定位器元件
         const LocationPicker = ({ lat, lng, onChange }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
@@ -344,14 +344,20 @@
             return <div ref={mapRef} className="w-full h-full z-0"></div>;
         };
 
+        // Leaflet 案件空間分布地圖元件 (支援 MarkerCluster 重疊聚合)
         const CaseMap = ({ cases, onSelectCase }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
             const markersLayerRef = useRef(null);
+            
+            // 新增：地圖搜尋相關的 State 與 Ref
+            const searchMarkerRef = useRef(null);
+            const [searchInput, setSearchInput] = useState('');
+            const [isSearching, setIsSearching] = useState(false);
+            const [searchError, setSearchError] = useState('');
 
-            const displayCases = useMemo(() => {
-                return cases.filter(c => c.caseType !== 'SPECIAL')
-                .map(c => {
+            const activeCases = useMemo(() => {
+                return cases.filter(c => c.caseType !== 'SPECIAL').map(c => {
                     if (!c.location?.lat || !c.location?.lng) {
                         const fallback = DISTRICT_COORDS[c.location?.district];
                         if (fallback) {
@@ -398,7 +404,7 @@
                 markersLayerRef.current.clearLayers();
                 const newMarkers = [];
 
-                displayCases.forEach(c => {
+                activeCases.forEach(c => {
                     let color = '#6366f1';
                     
                     if (c.status === 'CLOSED' || c.status === 'MERGED') {
@@ -437,16 +443,96 @@
                 
                 markersLayerRef.current.addLayers(newMarkers);
                 setTimeout(() => mapInstanceRef.current.invalidateSize(), 300);
-            }, [displayCases, onSelectCase]);
+            }, [activeCases, onSelectCase]);
+
+            // 新增：處理地圖地址搜尋的函式
+            const handleSearch = async (e) => {
+                if (e) e.preventDefault();
+                if (!searchInput.trim()) return;
+
+                setIsSearching(true);
+                setSearchError('');
+
+                try {
+                    // 自動加上桃園市提高精準度，若使用者已自行輸入則不重複加
+                    const query = searchInput.includes('桃園') ? searchInput : `桃園市${searchInput}`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+                    const response = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+                    const data = await response.json();
+
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+
+                        if (mapInstanceRef.current) {
+                            // 使用 flyTo 產生平滑飛移的動畫效果，放大層級設為 17
+                            mapInstanceRef.current.flyTo([lat, lng], 17, { duration: 1.5 });
+
+                            // 移除舊的搜尋標記
+                            if (searchMarkerRef.current) {
+                                mapInstanceRef.current.removeLayer(searchMarkerRef.current);
+                            }
+
+                            // 建立一個特殊的綠色水滴標記代表搜尋結果，避免與案件點混淆
+                            const iconHtml = `<div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50% 50% 0 50%; transform: rotate(45deg); border: 3px solid white; box-shadow: 2px 2px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>`;
+                            const searchIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [32, 32], iconAnchor: [16, 32] });
+
+                            const newMarker = L.marker([lat, lng], { icon: searchIcon }).addTo(mapInstanceRef.current);
+                            newMarker.bindTooltip(`<div style="min-width: 120px; text-align: center;"><div style="font-size: 12px; font-weight: 900; color: #059669; margin-bottom: 4px;">📍 搜尋定位點</div><div style="font-size: 14px; font-weight: bold; color: #1e293b;">${searchInput}</div></div>`, { direction: 'top', offset: [0, -30], className: 'custom-tooltip shadow-float border-0 rounded-xl', opacity: 0.95 }).openTooltip();
+                            searchMarkerRef.current = newMarker;
+                        }
+                    } else {
+                        setSearchError('找不到該地址，請嘗試加上更完整的行政區或路段名。');
+                        setTimeout(() => setSearchError(''), 3500);
+                    }
+                } catch (err) {
+                    setSearchError('定位服務暫時無法使用，請稍後再試。');
+                    setTimeout(() => setSearchError(''), 3500);
+                } finally {
+                    setIsSearching(false);
+                }
+            };
 
             return (
                 <div className="h-full flex flex-col animate-fade-in bg-white rounded-3xl shadow-soft p-4 md:p-6 border border-slate-100">
-                    <div className="flex justify-between items-center mb-4 pl-2">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 pl-2 gap-4">
                         <div>
                             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icons.MapIcon /> 案件空間分布</h3>
                             <p className="text-sm text-slate-400 mt-1 font-medium">使用 Google Maps 街道底圖 (道路資訊最新)，包含已結案歷史案件 (灰色標記)</p>
                         </div>
-                        <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold border border-indigo-100">地圖案件數：{displayCases.length}</span>
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+                            {/* 新增：地址搜尋輸入框 */}
+                            <form onSubmit={handleSearch} className="relative w-full sm:w-72 xl:w-80">
+                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+                                    <Icons.Search />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="在地圖上搜尋地址或路口..." 
+                                    className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500/30 transition-all font-bold text-slate-700 placeholder-slate-400"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                />
+                                <button 
+                                    type="submit" 
+                                    disabled={isSearching}
+                                    className="absolute inset-y-1.5 right-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {isSearching ? '尋找中' : '定位'}
+                                </button>
+                                {/* 錯誤訊息提示氣泡 */}
+                                {searchError && (
+                                    <div className="absolute top-full left-0 mt-2 bg-rose-50 text-rose-600 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 shadow-sm z-10 flex items-center gap-1 animate-fade-in">
+                                        <Icons.Alert /> {searchError}
+                                    </div>
+                                )}
+                            </form>
+                            
+                            <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-xl font-bold border border-indigo-100 whitespace-nowrap hidden sm:block">
+                                地圖案件數：{activeCases.length}
+                            </span>
+                        </div>
                     </div>
                     <div ref={mapRef} className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 z-0 relative"></div>
                 </div>
