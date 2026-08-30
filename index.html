@@ -315,10 +315,10 @@
                 if (!mapInstanceRef.current) {
                     const map = L.map(mapRef.current).setView([lat, lng], 16);
                     
-                    // 切換為 ESRI World Street Map (完全免費免 Key、無浮水印，且圖面乾淨)
-                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { 
-                        maxZoom: 19,
-                        attribution: 'Tiles &copy; Esri'
+                    // 切換為 Google Maps 街道圖 (道路資訊最新，支援至 20 級放大)
+                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', { 
+                        maxZoom: 20,
+                        attribution: '&copy; Google Maps'
                     }).addTo(map);
 
                     const iconHtml = `<div style="width: 24px; height: 24px; background-color: #ef4444; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4);"></div>`;
@@ -349,10 +349,9 @@
             const mapInstanceRef = useRef(null);
             const markersLayerRef = useRef(null);
 
-            const activeCases = useMemo(() => {
-                return cases.filter(c => 
-                    c.status !== 'CLOSED' && c.status !== 'MERGED' && c.caseType !== 'SPECIAL'
-                ).map(c => {
+            const displayCases = useMemo(() => {
+                return cases.filter(c => c.caseType !== 'SPECIAL')
+                .map(c => {
                     if (!c.location?.lat || !c.location?.lng) {
                         const fallback = DISTRICT_COORDS[c.location?.district];
                         if (fallback) {
@@ -374,10 +373,10 @@
                 if (!mapInstanceRef.current) {
                     const map = L.map(mapRef.current).setView([24.9631, 121.2238], 12);
                     
-                    // 切換為 ESRI World Street Map (完全免費免 Key、無浮水印，且圖面乾淨)
-                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                        maxZoom: 19, 
-                        attribution: 'Tiles &copy; Esri'
+                    // 切換為 Google Maps 街道圖 (道路資訊最新，支援至 20 級放大)
+                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', {
+                        maxZoom: 20, 
+                        attribution: '&copy; Google Maps'
                     }).addTo(map);
 
                     mapInstanceRef.current = map;
@@ -399,25 +398,33 @@
                 markersLayerRef.current.clearLayers();
                 const newMarkers = [];
 
-                activeCases.forEach(c => {
+                displayCases.forEach(c => {
                     let color = '#6366f1';
-                    if (c.category === 'A1') color = '#ef4444';
-                    else if (c.category === 'REPLY') color = '#06b6d4';
-                    else if (c.category === 'TEMP') color = '#f97316';
-                    else if (c.category === 'OTHER_UNIT') color = '#3b82f6';
+                    
+                    if (c.status === 'CLOSED' || c.status === 'MERGED') {
+                        color = '#94a3b8'; // 已結案顯示灰色
+                    } else {
+                        if (c.category === 'A1') color = '#ef4444';
+                        else if (c.category === 'REPLY') color = '#06b6d4';
+                        else if (c.category === 'TEMP') color = '#f97316';
+                        else if (c.category === 'OTHER_UNIT') color = '#3b82f6';
+                    }
 
                     const markerHtml = `<div style="width: 24px; height: 24px; background: ${color}; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
                     const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
                     const marker = L.marker([c.location.lat, c.location.lng], { icon });
                     
+                    const isClosed = c.status === 'CLOSED' || c.status === 'MERGED';
+                    
                     const tooltipContent = `
                         <div style="min-width: 200px;">
                             <div style="font-size: 11px; font-weight: 900; color: ${color}; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                 <div style="width:8px; height:8px; border-radius:50%; background-color:${color};"></div>
+                                ${isClosed ? '<span style="background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px;">已結案</span>' : ''}
                                 ${c.category === 'SURVEY' ? '會勘' : c.category === 'A1' ? 'A1事故' : '一般案件'}
                                 ${c.location.isFallback ? '<span style="background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 6px; margin-left: auto; font-size: 10px;">概略位置</span>' : ''}
                             </div>
-                            <div style="font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 6px; line-height: 1.3;">${c.location.address}</div>
+                            <div style="font-size: 15px; font-weight: 800; color: ${isClosed ? '#64748b' : '#1e293b'}; text-decoration: ${isClosed ? 'line-through' : 'none'}; margin-bottom: 6px; line-height: 1.3;">${c.location.address}</div>
                             <div style="font-size: 13px; color: #64748b; max-width: 240px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; background: #f8fafc; padding: 6px; border-radius: 8px;">${c.content}</div>
                             <div style="margin-top: 8px; font-size: 12px; color: ${color}; font-weight: bold; background: ${color}15; padding: 6px 8px; border-radius: 8px; text-align: center;">點擊查看詳情 👉</div>
                         </div>
@@ -430,16 +437,16 @@
                 
                 markersLayerRef.current.addLayers(newMarkers);
                 setTimeout(() => mapInstanceRef.current.invalidateSize(), 300);
-            }, [activeCases, onSelectCase]);
+            }, [displayCases, onSelectCase]);
 
             return (
                 <div className="h-full flex flex-col animate-fade-in bg-white rounded-3xl shadow-soft p-4 md:p-6 border border-slate-100">
                     <div className="flex justify-between items-center mb-4 pl-2">
                         <div>
                             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icons.MapIcon /> 案件空間分布</h3>
-                            <p className="text-sm text-slate-400 mt-1 font-medium">使用 ESRI 街道底圖 (無浮水印)，支援自動群聚與展開</p>
+                            <p className="text-sm text-slate-400 mt-1 font-medium">使用 Google Maps 街道底圖 (道路資訊最新)，包含已結案歷史案件 (灰色標記)</p>
                         </div>
-                        <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold border border-indigo-100">地圖案件數：{activeCases.length}</span>
+                        <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold border border-indigo-100">地圖案件數：{displayCases.length}</span>
                     </div>
                     <div ref={mapRef} className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 z-0 relative"></div>
                 </div>
