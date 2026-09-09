@@ -960,6 +960,14 @@
             const [isEditingContent, setEditingContent] = useState(false);
             const [editedContent, setEditedContent] = useState('');
             
+            const [isEditingBasic, setIsEditingBasic] = useState(false);
+            const [editedBasic, setEditedBasic] = useState({
+                receiveDate: '',
+                assignee: '',
+                surveyDocNo: '',
+                replyDocNo: ''
+            });
+            
             const [showMergePanel, setShowMergePanel] = useState(false);
             const [mergeSearchText, setMergeSearchText] = useState('');
 
@@ -978,6 +986,13 @@
                 setUserDragged(false);
 
                 setEditedContent(caseData.content || '');
+                setEditedBasic({
+                    receiveDate: caseData.extData?.receiveDate || '',
+                    assignee: caseData.extData?.assignee || '',
+                    surveyDocNo: caseData.extData?.surveyDocNo || '',
+                    replyDocNo: caseData.extData?.replyDocNo || ''
+                });
+                
                 setEditExtData({
                     receiveDate: caseData.extData?.receiveDate || '', surveyDate: caseData.extData?.surveyDate || '', recordDeadline: caseData.extData?.recordDeadline || '', recordActualDate: caseData.extData?.recordActualDate || '', recordDocNo: caseData.extData?.recordDocNo || '', surveyResolution: caseData.extData?.surveyResolution || '', dispatchDate: caseData.extData?.dispatchDate || '', completionDate: caseData.extData?.completionDate || '', completionDeadline: caseData.extData?.completionDeadline || '', noDispatchRequired: caseData.extData?.noDispatchRequired || false, assignDate: caseData.extData?.assignDate || '', handlingStatus: caseData.extData?.handlingStatus || '', assignee: caseData.extData?.assignee || '', replyDate: caseData.extData?.replyDate || '', replyDocNo: caseData.extData?.replyDocNo || '', replyContent: caseData.extData?.replyContent || '', note: caseData.extData?.note || '', forwardUnit: caseData.extData?.forwardUnit || ''
                 });
@@ -1049,6 +1064,19 @@
                 setEditingAddress(false); 
             };
             const handleSaveContent = () => { onUpdateBasicInfo(caseData.id, { content: editedContent }); setEditingContent(false); };
+            
+            const handleSaveBasic = () => {
+                onUpdateBasicInfo(caseData.id, {
+                    extData: {
+                        ...caseData.extData,
+                        receiveDate: editedBasic.receiveDate,
+                        assignee: editedBasic.assignee,
+                        surveyDocNo: editedBasic.surveyDocNo,
+                        replyDocNo: editedBasic.replyDocNo
+                    }
+                });
+                setIsEditingBasic(false);
+            };
             
             const performMerge = (targetCaseId) => {
                 setModalConfig({
@@ -1168,30 +1196,53 @@
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-t border-slate-100 pt-6">
-                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
-                                {isSpecialMode ? (
-                                    <>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span><span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span></div>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span><span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span></div>
-                                    </>
-                                ) : isForwardMode ? (
-                                    <>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">函轉單位</span><span className="font-bold text-slate-700">{caseData.extData?.forwardUnit || '-'}</span></div>
-                                        <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">發文文號</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
-                                    </>
-                                ) : isReplyMode ? (
-                                    <>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復日期</span><span className="font-bold text-slate-700">{caseData.extData?.replyDate || '-'}</span></div>
-                                        <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復文號</span><span className="font-bold text-slate-700">{caseData.extData?.replyDocNo || '-'}</span></div>
-                                    </>
+                            <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative border border-slate-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">案件基本資訊</span>
+                                    {caseData.status !== 'CLOSED' && !isEditingBasic && (<button onClick={() => setIsEditingBasic(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>)}
+                                </div>
+                                {isEditingBasic ? (
+                                    <div className="flex flex-col gap-4 animate-fade-in">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-500">收文 / 收件日期</label><input type="date" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.receiveDate} onChange={e => setEditedBasic({...editedBasic, receiveDate: e.target.value})} /></div>
+                                            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-500">承辦人</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.assignee} onChange={e => setEditedBasic({...editedBasic, assignee: e.target.value})} /></div>
+                                            {!isSpecialMode && !isReplyMode && (
+                                                <div className="space-y-1.5 md:col-span-2"><label className="text-xs font-bold text-slate-500">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : caseData.category === 'FORWARD' ? '發文文號' : '通知文號'}</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.surveyDocNo} onChange={e => setEditedBasic({...editedBasic, surveyDocNo: e.target.value})} /></div>
+                                            )}
+                                            {isReplyMode && (
+                                                <div className="space-y-1.5 md:col-span-2"><label className="text-xs font-bold text-slate-500">回復文號</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.replyDocNo} onChange={e => setEditedBasic({...editedBasic, replyDocNo: e.target.value})} /></div>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end gap-2"><button onClick={() => { setIsEditingBasic(false); setEditedBasic({ receiveDate: caseData.extData?.receiveDate||'', assignee: caseData.extData?.assignee||'', surveyDocNo: caseData.extData?.surveyDocNo||'', replyDocNo: caseData.extData?.replyDocNo||'' }); }} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button><button onClick={handleSaveBasic} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button></div>
+                                    </div>
                                 ) : (
-                                    <>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                        <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : '通知文號'}</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
-                                    </>
+                                    <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                                        <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
+                                        {isSpecialMode ? (
+                                            <>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span><span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span></div>
+                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span><span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span></div>
+                                            </>
+                                        ) : isForwardMode ? (
+                                            <>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">函轉單位</span><span className="font-bold text-slate-700">{caseData.extData?.forwardUnit || '-'}</span></div>
+                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">發文文號</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
+                                            </>
+                                        ) : isReplyMode ? (
+                                            <>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復日期</span><span className="font-bold text-slate-700">{caseData.extData?.replyDate || '-'}</span></div>
+                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復文號</span><span className="font-bold text-slate-700">{caseData.extData?.replyDocNo || '-'}</span></div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
+                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : '通知文號'}</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
+                                            </>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -1228,23 +1279,6 @@
                             {caseData.status === 'CLOSED' && <div className="absolute top-8 right-8 text-emerald-500 opacity-20 pointer-events-none"><Icons.Check /></div>}
                             <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><Icons.Check /> {caseData.status === 'CLOSED' ? '結案資訊' : '案件處理進度'}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">收文 / 收件日期</label><input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 border border-slate-200 focus:ring-4 ${themeRing}`} value={editExtData.receiveDate || ''} onChange={e => setEditExtData({...editExtData, receiveDate: e.target.value})} /></div>
-                                <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">承辦人</label><input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 border border-slate-200 focus:ring-4 ${themeRing}`} value={editExtData.assignee || ''} onChange={e => setEditExtData({...editExtData, assignee: e.target.value})} placeholder="尚未指派" /></div>
-                                
-                                {!isSpecialMode && !isReplyMode && (
-                                    <div className="space-y-1.5 md:col-span-2">
-                                        <label className="text-sm font-medium text-slate-600 px-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : caseData.category === 'FORWARD' ? '發文文號' : '通知文號'}</label>
-                                        <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 border border-slate-200 focus:ring-4 ${themeRing}`} value={editExtData.surveyDocNo || ''} onChange={e => setEditExtData({...editExtData, surveyDocNo: e.target.value})} placeholder="輸入文號" />
-                                    </div>
-                                )}
-                                {isReplyMode && (
-                                    <div className="space-y-1.5 md:col-span-2">
-                                        <label className="text-sm font-medium text-slate-600 px-1">回復文號</label>
-                                        <input type="text" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 border border-slate-200 focus:ring-4 ${themeRing}`} value={editExtData.replyDocNo || ''} onChange={e => setEditExtData({...editExtData, replyDocNo: e.target.value})} placeholder="輸入文號" />
-                                    </div>
-                                )}
-                                <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-                                
                                 {isSpecialMode ? (
                                     <>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">預定結案時間</label><input type="date" disabled={caseData.status==='CLOSED'} className={`w-full rounded-2xl px-4 py-3.5 border border-slate-200 focus:ring-4 ${themeRing}`} value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} /></div>
