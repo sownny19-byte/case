@@ -576,7 +576,8 @@
                        (c.content?.toLowerCase().includes(keyword)) ||
                        (c.extData?.note?.toLowerCase().includes(keyword)) ||
                        (c.extData?.surveyDocNo?.toLowerCase().includes(keyword)) ||
-                       (c.extData?.replyDocNo?.toLowerCase().includes(keyword));
+                       (c.extData?.replyDocNo?.toLowerCase().includes(keyword)) ||
+                       (c.extData?.recordDocNo?.toLowerCase().includes(keyword));
             });
 
             const activeColor = isSpecialMode ? 'bg-red-500 text-white shadow-md' : 'bg-primary text-white shadow-md';
