@@ -5,24 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>案件列管系統</title>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"></script>
-
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
-    <!-- Leaflet.markercluster 叢集擴充套件 (解決重疊地標) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-
-    <!-- Excel 匯出庫 (SheetJS) -->
+    
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
     <script>
@@ -45,7 +39,7 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        input[type="text"], input[type="email"], input[type="date"], select, textarea {
+        input[type="text"], input[type="email"], input[type="date"], input[type="datetime-local"], select, textarea {
             transition: all 0.2s ease-in-out; border: 1px solid transparent; background-color: #f1f5f9;
         }
         input:focus, select:focus, textarea:focus {
@@ -55,7 +49,6 @@
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* 逾期紅底動畫與快到期黃底 */
         .urgent-row { animation: pulse-red 2s infinite; }
         @keyframes pulse-red {
             0% { background-color: rgba(254, 226, 226, 0.4); }
@@ -65,30 +58,18 @@
         .warning-row { background-color: rgba(254, 243, 199, 0.7); transition: background-color 0.3s; }
         .warning-row:hover { background-color: rgba(254, 243, 199, 1); }
 
-        /* 客製化 Leaflet Tooltip 以符合 Tailwind 風格 */
         .leaflet-tooltip {
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #f1f5f9;
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
-            border-radius: 0.75rem;
-            padding: 0.5rem 0.75rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            background: rgba(255, 255, 255, 0.95); border: 1px solid #f1f5f9;
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1); border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem; font-family: 'Noto Sans TC', sans-serif;
         }
         .leaflet-tooltip-top:before { border-top-color: rgba(255, 255, 255, 0.95); }
         .leaflet-control-attribution { display: none; }
         
         .custom-cluster-icon {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            color: white;
-            font-weight: 900;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-            border: 3px solid white;
-            font-size: 15px;
-            transition: transform 0.2s ease;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white;
+            font-weight: 900; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); border: 3px solid white; font-size: 15px; transition: transform 0.2s ease;
         }
         .custom-cluster-icon:hover { transform: scale(1.1); }
     </style>
@@ -115,22 +96,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
-
-        const DISTRICT_COORDS = {
-            '桃園區': { lat: 24.9936, lng: 121.3009 },
-            '中壢區': { lat: 24.9631, lng: 121.2238 },
-            '平鎮區': { lat: 24.9458, lng: 121.2183 },
-            '八德區': { lat: 24.9295, lng: 121.2826 },
-            '楊梅區': { lat: 24.9150, lng: 121.1462 },
-            '蘆竹區': { lat: 25.0454, lng: 121.2882 },
-            '大溪區': { lat: 24.8805, lng: 121.2868 },
-            '龜山區': { lat: 24.9958, lng: 121.3389 },
-            '大園區': { lat: 25.0645, lng: 121.1973 },
-            '觀音區': { lat: 25.0333, lng: 121.0789 },
-            '新屋區': { lat: 24.9722, lng: 121.1061 },
-            '龍潭區': { lat: 24.8638, lng: 121.2125 },
-            '復興區': { lat: 24.8150, lng: 121.3475 }
-        };
+        const DISTRICT_COORDS = { '桃園區': { lat: 24.9936, lng: 121.3009 }, '中壢區': { lat: 24.9631, lng: 121.2238 }, '平鎮區': { lat: 24.9458, lng: 121.2183 }, '八德區': { lat: 24.9295, lng: 121.2826 }, '楊梅區': { lat: 24.9150, lng: 121.1462 }, '蘆竹區': { lat: 25.0454, lng: 121.2882 }, '大溪區': { lat: 24.8805, lng: 121.2868 }, '龜山區': { lat: 24.9958, lng: 121.3389 }, '大園區': { lat: 25.0645, lng: 121.1973 }, '觀音區': { lat: 25.0333, lng: 121.0789 }, '新屋區': { lat: 24.9722, lng: 121.1061 }, '龍潭區': { lat: 24.8638, lng: 121.2125 }, '復興區': { lat: 24.8150, lng: 121.3475 } };
 
         const getLocalISODate = (date = new Date()) => {
             if (!date || isNaN(new Date(date).getTime())) return '';
@@ -140,7 +106,7 @@
 
         const calculateWorkingDays = (dateStr, addDays = 3) => {
             if (!dateStr) return '';
-            const d = new Date(dateStr);
+            const d = new Date(dateStr.substring(0, 10)); // 避免時間影響推算
             if (isNaN(d.getTime())) return '';
             let daysAdded = 0;
             while (daysAdded < addDays) {
@@ -152,7 +118,7 @@
 
         const calculateMonthsDeadline = (dateStr, addMonths = 2) => {
             if (!dateStr) return '';
-            const d = new Date(dateStr);
+            const d = new Date(dateStr.substring(0, 10));
             if (isNaN(d.getTime())) return '';
             d.setMonth(d.getMonth() + addMonths);
             return getLocalISODate(d);
@@ -172,7 +138,6 @@
             const today = new Date(); today.setHours(0,0,0,0);
             const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0,0,0,0);
             const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
             if (diffDays < 0) return 'OVERDUE';
             if (diffDays <= 15) return 'WARNING';
             return 'SAFE';
@@ -186,30 +151,21 @@
                     const response = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
                     const data = await response.json();
                     if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-                } catch (error) { console.error("Geocoding Error:", error); }
+                } catch (error) {}
                 return null;
             };
-
             let res = await tryFetch(`桃園市${district}${address}`);
             if (res) return res;
-
             let cleanAddr = address.replace(/與.*[路街]口/g, '').replace(/[前後旁]|附近|交叉口/g, '').trim();
-            if (cleanAddr !== address && cleanAddr.length > 0) {
-                res = await tryFetch(`桃園市${district}${cleanAddr}`);
-                if (res) return res;
-            }
-
+            if (cleanAddr !== address && cleanAddr.length > 0) { res = await tryFetch(`桃園市${district}${cleanAddr}`); if (res) return res; }
             const roadMatch = address.match(/^.*?[路街大道巷]/);
-            if (roadMatch && roadMatch[0] !== address) {
-                res = await tryFetch(`桃園市${district}${roadMatch[0]}`);
-                if (res) return res;
-            }
-
+            if (roadMatch && roadMatch[0] !== address) { res = await tryFetch(`桃園市${district}${roadMatch[0]}`); if (res) return res; }
             return null;
         };
 
         const Icons = {
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
+            Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
             Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
             Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
@@ -248,15 +204,12 @@
         };
 
         const StatusBadge = ({ status }) => {
-            const config = {
-                PENDING: { color: 'bg-amber-50 text-amber-700 border border-amber-200', label: '辦理中' },
-                CLOSED: { color: 'bg-emerald-50 text-emerald-700 border border-emerald-200', label: '已結案' },
-                MERGED: { color: 'bg-slate-100 text-slate-500 border border-slate-300', label: '已併案' }
-            }[status] || { color: 'bg-slate-100 text-slate-600', label: status };
+            const config = { PENDING: { color: 'bg-amber-50 text-amber-700 border border-amber-200', label: '辦理中' }, CLOSED: { color: 'bg-emerald-50 text-emerald-700 border border-emerald-200', label: '已結案' }, MERGED: { color: 'bg-slate-100 text-slate-500 border border-slate-300', label: '已併案' } }[status] || { color: 'bg-slate-100 text-slate-600', label: status };
             return <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide shadow-sm ${config.color}`}>{config.label}</span>;
         };
 
-        const CategoryBadge = ({ category }) => {
+        const CategoryBadge = ({ caseData }) => {
+            const category = caseData?.category;
             const config = {
                 SURVEY: { color: 'bg-indigo-50 text-indigo-700', label: '會勘' },
                 REPLY: { color: 'bg-cyan-50 text-cyan-700', label: '回復' },
@@ -267,33 +220,29 @@
                 DIRECTOR: { color: 'bg-red-100 text-red-700', label: '局長案' },
                 TEMP: { color: 'bg-orange-100 text-orange-700', label: '臨時交辦' },
                 OTHER_SPECIAL: { color: 'bg-stone-100 text-stone-700', label: '其他(特殊)' },
+                OTHER: { color: 'bg-pink-50 text-pink-700', label: caseData?.extData?.customCategoryName || '其他' },
             }[category] || { color: 'bg-slate-100 text-slate-600', label: '未分類' };
             return <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide ${config.color} whitespace-nowrap`}>{config.label}</span>;
         };
 
         const WarningBadge = ({ caseData }) => {
             if (caseData.status === 'CLOSED' || caseData.status === 'MERGED') return <span className="text-slate-400 font-bold text-xs bg-slate-100 px-2 py-1 rounded-md border border-slate-200">無</span>;
-            
             const status = getDeadlineStatus(caseData);
-            if (status === 'OVERDUE') {
-                return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-rose-200"><Icons.Alert /> 已逾期</span>;
-            } else if (status === 'WARNING') {
+            if (status === 'OVERDUE') return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-rose-200"><Icons.Alert /> 已逾期</span>;
+            if (status === 'WARNING') {
                 const today = new Date(); today.setHours(0,0,0,0);
                 const deadline = new Date(caseData.extData.completionDeadline); deadline.setHours(0,0,0,0);
                 const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                 return <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold text-xs shadow-sm flex items-center w-fit gap-1 whitespace-nowrap border border-amber-200"><Icons.Clock /> 剩 {diffDays} 天</span>;
             }
-            
             return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md font-bold text-xs border border-emerald-100 w-fit whitespace-nowrap flex items-center gap-1">安全期</span>;
         };
 
         const getRowStatusClass = (c) => {
             if (c.status === 'CLOSED' || c.status === 'MERGED') return 'hover:bg-slate-50/80 transition-colors';
-            
             const status = getDeadlineStatus(c);
             if (status === 'OVERDUE') return 'urgent-row hover:bg-rose-50';
             if (status === 'WARNING') return 'warning-row';
-            
             return 'hover:bg-slate-50/80 transition-colors';
         };
 
@@ -305,6 +254,231 @@
              return 'text-slate-600';
         };
 
+        const getDatetimeLocal = (dateStr) => {
+            if (!dateStr) return '';
+            if (dateStr.length === 10) return `${dateStr}T09:00`;
+            return dateStr.substring(0, 16);
+        };
+
+        const formatDateTime = (dateStr) => {
+            if (!dateStr) return '-';
+            return dateStr.replace('T', ' ');
+        };
+
+        const CalendarView = ({ cases, onSelectCase }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [viewMode, setViewMode] = useState('WEEK'); // 'MONTH', 'WEEK', 'DAY'
+            
+            const prevPeriod = () => {
+                if (viewMode === 'MONTH') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+                else if (viewMode === 'WEEK') { const d = new Date(currentDate); d.setDate(d.getDate() - 7); setCurrentDate(d); }
+                else { const d = new Date(currentDate); d.setDate(d.getDate() - 1); setCurrentDate(d); }
+            };
+            
+            const nextPeriod = () => {
+                if (viewMode === 'MONTH') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+                else if (viewMode === 'WEEK') { const d = new Date(currentDate); d.setDate(d.getDate() + 7); setCurrentDate(d); }
+                else { const d = new Date(currentDate); d.setDate(d.getDate() + 1); setCurrentDate(d); }
+            };
+
+            const resetToToday = () => {
+                setCurrentDate(new Date());
+            };
+            
+            const daysToRender = [];
+            const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+            
+            if (viewMode === 'MONTH') {
+                const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+                for (let i = 0; i < firstDayOfMonth; i++) daysToRender.push(null);
+                for (let i = 1; i <= daysInMonth; i++) daysToRender.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), i));
+            } else if (viewMode === 'WEEK') {
+                const startOfWeek = new Date(currentDate);
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+                for (let i = 0; i < 7; i++) daysToRender.push(new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i));
+            } else if (viewMode === 'DAY') {
+                daysToRender.push(new Date(currentDate));
+            }
+
+            const activeCases = cases.filter(c => c.extData?.surveyDate && c.status !== 'CLOSED' && c.status !== 'MERGED');
+            const todayStr = getLocalISODate(new Date());
+
+            const renderHeaderDate = () => {
+                if (viewMode === 'MONTH') return `${currentDate.getFullYear()}年 ${currentDate.getMonth() + 1}月`;
+                if (viewMode === 'WEEK') {
+                    const start = daysToRender[0];
+                    const end = daysToRender[6];
+                    return `${start.getMonth() + 1}月${start.getDate()}日 - ${end.getMonth() + 1}月${end.getDate()}日 (${currentDate.getFullYear()})`;
+                }
+                return `${currentDate.getFullYear()}年 ${currentDate.getMonth() + 1}月 ${currentDate.getDate()}日 (${dayNames[currentDate.getDay()]})`;
+            };
+
+            const renderCaseCard = (c, isTimeline = false) => {
+                const time = c.extData.surveyDate.includes('T') ? c.extData.surveyDate.split('T')[1].substring(0,5) : '全天';
+                if (isTimeline) {
+                    return (
+                        <div key={c.id} onClick={() => onSelectCase(c)} className="bg-indigo-50/90 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 cursor-pointer transition-all p-2.5 rounded-xl flex flex-col gap-1.5 shadow-sm text-xs min-w-[160px] max-w-[220px] shrink-0 h-fit hover:-translate-y-0.5 hover:shadow-md">
+                            <div className="flex items-center justify-between font-black">
+                                <span className="bg-indigo-500 text-white px-2 py-0.5 rounded-md text-[11px] tracking-wide shadow-sm">{time}</span>
+                                <span className="truncate max-w-[80px] bg-white/80 px-1.5 py-0.5 rounded text-indigo-700 shadow-sm">{c.extData?.assignee || '未指派'}</span>
+                            </div>
+                            <div className="font-bold truncate w-full mt-0.5 text-sm" title={c.location?.address}>{c.location?.address || '-'}</div>
+                            <div className="text-slate-600 line-clamp-2 w-full text-[11px] leading-relaxed bg-white/60 p-1.5 rounded-lg border border-indigo-50 mt-0.5">{c.content}</div>
+                        </div>
+                    );
+                }
+                // 月檢視的微型卡片
+                return (
+                    <div key={c.id} onClick={() => onSelectCase(c)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 cursor-pointer transition-colors p-1.5 rounded-lg flex flex-col gap-0.5 shadow-sm text-[10px] md:text-xs">
+                        <div className="flex items-center gap-1 font-black">
+                            <span className="bg-indigo-500 text-white px-1 py-0.5 rounded min-w-fit">{time}</span>
+                            <span className="truncate">{c.extData?.assignee || '未指派'}</span>
+                        </div>
+                        <div className="text-slate-600 font-bold truncate w-full">{c.location?.address || '-'}</div>
+                    </div>
+                );
+            };
+
+            const renderTimeline = () => {
+                // 自動計算涵蓋的時間區間，預設 08:00 ~ 18:00
+                let minHour = 8;
+                let maxHour = 18;
+                daysToRender.forEach(dayDate => {
+                    if(!dayDate) return;
+                    activeCases.forEach(c => {
+                        const dateStr = c.extData.surveyDate;
+                        if (dateStr && dateStr.includes('T') && dateStr.substring(0, 10) === getLocalISODate(dayDate)) {
+                            const h = parseInt(dateStr.split('T')[1].substring(0,2), 10);
+                            if (!isNaN(h)) {
+                                if (h < minHour) minHour = Math.max(0, h - 1);
+                                if (h > maxHour) maxHour = Math.min(23, h + 1);
+                            }
+                        }
+                    });
+                });
+                const hours = Array.from({length: maxHour - minHour + 1}, (_, i) => i + minHour);
+
+                return (
+                    <div className="flex-1 border border-slate-200 rounded-2xl bg-white shadow-inner overflow-hidden flex flex-col relative" style={{ maxHeight: '70vh' }}>
+                        <div className="overflow-auto flex-1" style={{ scrollbarWidth: 'thin' }}>
+                            <div className="min-w-max flex flex-col relative pb-4">
+                                {/* 表頭 */}
+                                <div className="flex sticky top-0 z-30 bg-slate-100 border-b border-slate-200 shadow-sm">
+                                    <div className="w-16 md:w-20 shrink-0 border-r border-slate-200 sticky left-0 bg-slate-100 z-40"></div>
+                                    {daysToRender.map((dayDate, idx) => {
+                                        const isToday = dayDate && getLocalISODate(dayDate) === todayStr;
+                                        return (
+                                            <div key={`th-${idx}`} className={`flex-1 py-3 text-center border-r border-slate-200 min-w-[240px] ${isToday ? 'bg-indigo-100 text-indigo-800' : 'text-slate-700'} relative z-30`}>
+                                                <div className="text-xs md:text-sm font-bold">{dayDate ? dayNames[dayDate.getDay()] : ''}</div>
+                                                <div className="text-sm md:text-lg font-black">{dayDate ? `${dayDate.getMonth()+1}/${dayDate.getDate()}` : ''}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                
+                                {/* 全天區段 */}
+                                <div className="flex border-b border-slate-200 bg-slate-50/50">
+                                    <div className="w-16 md:w-20 shrink-0 border-r border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 py-3 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">全天</div>
+                                    {daysToRender.map((dayDate, idx) => {
+                                        if(!dayDate) return <div key={`allday-empty-${idx}`} className="flex-1 border-r border-slate-100 min-w-[240px]"></div>;
+                                        const dayStr = getLocalISODate(dayDate);
+                                        const dayCasesAllDay = activeCases.filter(c => c.extData.surveyDate === dayStr).sort((a,b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                                        return (
+                                            <div key={`allday-${idx}`} className="flex-1 border-r border-slate-100 p-2 flex flex-row gap-2 overflow-x-auto min-w-[240px] bg-amber-50/20">
+                                                {dayCasesAllDay.map(c => renderCaseCard(c, true))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* 每小時區段 */}
+                                {hours.map(hour => (
+                                    <div key={`hour-${hour}`} className="flex border-b border-slate-100 min-h-[120px] hover:bg-slate-50/50 transition-colors group">
+                                        <div className="w-16 md:w-20 shrink-0 border-r border-slate-200 flex flex-col items-center py-3 text-xs font-bold text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                            <span className="sticky top-16 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg shadow-sm border border-slate-200">{`${String(hour).padStart(2, '0')}:00`}</span>
+                                        </div>
+                                        {daysToRender.map((dayDate, idx) => {
+                                            if(!dayDate) return <div key={`empty-${hour}-${idx}`} className="flex-1 border-r border-slate-100 min-w-[240px]"></div>;
+                                            
+                                            // 過濾此小時的所有案件並以建立時間排序
+                                            const dayCasesHour = activeCases.filter(c => {
+                                                const dateStr = c.extData.surveyDate;
+                                                if (!dateStr.includes('T')) return false;
+                                                const d = new Date(dateStr);
+                                                return d.getFullYear() === dayDate.getFullYear() && d.getMonth() === dayDate.getMonth() && d.getDate() === dayDate.getDate() && d.getHours() === hour;
+                                            }).sort((a,b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+                                            return (
+                                                <div key={`cell-${hour}-${idx}`} className="flex-1 border-r border-slate-100 p-2 flex flex-row gap-3 overflow-x-auto min-w-[240px] relative" style={{ scrollbarWidth: 'thin' }}>
+                                                    {dayCasesHour.map(c => renderCaseCard(c, true))}
+                                                    {/* 背景裝飾 */}
+                                                    {dayCasesHour.length === 0 && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiAvPgo8cGF0aCBkPSJNMCAwTDggOFpNOCAwTDAgOFoiIHN0cm9rZT0iI2YxZjVmOSIgc3Ryb2tlLXdpZHRoPSIxIiAvPgo8L3N2Zz4=')]"></div>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="bg-white rounded-3xl shadow-soft p-4 md:p-6 animate-fade-in border border-slate-100 flex-1 flex flex-col min-h-[500px]">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 shrink-0">
+                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 min-w-[250px]">
+                            <Icons.Calendar /> {renderHeaderDate()}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-between xl:justify-end">
+                            <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner">
+                                <button onClick={() => setViewMode('MONTH')} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'MONTH' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>月</button>
+                                <button onClick={() => setViewMode('WEEK')} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'WEEK' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>周</button>
+                                <button onClick={() => setViewMode('DAY')} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'DAY' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>日</button>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={prevPeriod} className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors border border-slate-200 bg-white"><Icons.ArrowLeft /></button>
+                                <button onClick={resetToToday} className="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-xl transition-colors text-sm whitespace-nowrap border border-indigo-100">回到今日</button>
+                                <button onClick={nextPeriod} className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors border border-slate-200 bg-white"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform: 'rotate(180deg)'}}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {viewMode === 'MONTH' ? (
+                        <div className={`grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden flex-1`}>
+                            {dayNames.map(d => (
+                                <div key={`header-${d}`} className="bg-slate-50 py-2 md:py-3 text-center text-xs md:text-sm font-bold text-slate-500">{d}</div>
+                            ))}
+                            {daysToRender.map((dayDate, idx) => {
+                                if (dayDate === null) return <div key={`empty-${idx}`} className="bg-slate-50 min-h-[80px] md:min-h-[100px] p-1 md:p-2"></div>;
+                                
+                                const dayCases = activeCases.filter(c => {
+                                    const d = new Date(c.extData.surveyDate.substring(0, 10));
+                                    return d.getFullYear() === dayDate.getFullYear() && d.getMonth() === dayDate.getMonth() && d.getDate() === dayDate.getDate();
+                                }).sort((a,b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                                
+                                const isToday = getLocalISODate(dayDate) === todayStr;
+                                
+                                return (
+                                    <div key={`day-${dayDate.getTime()}`} className={`bg-white min-h-[100px] md:min-h-[120px] p-2 flex flex-col gap-1.5 border-t border-slate-100 ${isToday ? 'bg-indigo-50/30' : ''}`}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className={`text-sm md:text-base font-bold w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-700'}`}>
+                                                {dayDate.getDate()}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[120px] md:max-h-[180px] pr-1" style={{ scrollbarWidth: 'thin' }}>
+                                            {dayCases.map(c => renderCaseCard(c, false))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : renderTimeline()}
+                </div>
+            );
+        };
+        // 微型可拖曳地圖定位器元件
         const LocationPicker = ({ lat, lng, onChange }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
@@ -312,60 +486,35 @@
 
             useEffect(() => {
                 if (!mapRef.current) return;
-                
                 if (!mapInstanceRef.current) {
                     const map = L.map(mapRef.current).setView([lat, lng], 16);
-                    
-                    // 切換為 Google Maps 街道圖 (道路資訊最新，支援至 20 級放大)
-                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', { 
-                        maxZoom: 20,
-                        attribution: '&copy; Google Maps'
-                    }).addTo(map);
-
+                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
                     const iconHtml = `<div style="width: 24px; height: 24px; background-color: #ef4444; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4);"></div>`;
                     const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-
                     const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map);
-                    
-                    marker.on('dragend', () => {
-                        const pos = marker.getLatLng();
-                        onChange(pos.lat, pos.lng);
-                    });
-
-                    mapInstanceRef.current = map;
-                    markerRef.current = marker;
-
+                    marker.on('dragend', () => { const pos = marker.getLatLng(); onChange(pos.lat, pos.lng); });
+                    mapInstanceRef.current = map; markerRef.current = marker;
                     setTimeout(() => map.invalidateSize(), 300);
                 } else {
-                    mapInstanceRef.current.setView([lat, lng], 16);
-                    markerRef.current.setLatLng([lat, lng]);
+                    mapInstanceRef.current.setView([lat, lng], 16); markerRef.current.setLatLng([lat, lng]);
                 }
             }, [lat, lng]);
-
             return <div ref={mapRef} className="w-full h-full z-0"></div>;
         };
 
         const CaseMap = ({ cases, onSelectCase }) => {
-            const mapRef = useRef(null);
-            const mapInstanceRef = useRef(null);
-            const markersLayerRef = useRef(null);
-            
-            const searchMarkerRef = useRef(null);
-            const [searchInput, setSearchInput] = useState('');
-            const [isSearching, setIsSearching] = useState(false);
-            const [searchError, setSearchError] = useState('');
+            const mapRef = useRef(null); const mapInstanceRef = useRef(null); const markersLayerRef = useRef(null);
+            const searchMarkerRef = useRef(null); const [searchInput, setSearchInput] = useState('');
+            const [isSearching, setIsSearching] = useState(false); const [searchError, setSearchError] = useState('');
 
             const activeCases = useMemo(() => {
                 return cases.filter(c => c.caseType !== 'SPECIAL').map(c => {
                     if (!c.location?.lat || !c.location?.lng) {
                         const fallback = DISTRICT_COORDS[c.location?.district];
                         if (fallback) {
-                            let hash = 0;
-                            const idStr = c.id || '';
+                            let hash = 0; const idStr = c.id || '';
                             for (let i = 0; i < idStr.length; i++) hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
-                            const offsetLat = (Math.abs(Math.sin(hash)) - 0.5) * 0.025;
-                            const offsetLng = (Math.abs(Math.cos(hash)) - 0.5) * 0.025;
-                            return { ...c, location: { ...c.location, lat: fallback.lat + offsetLat, lng: fallback.lng + offsetLng, isFallback: true } };
+                            return { ...c, location: { ...c.location, lat: fallback.lat + ((Math.abs(Math.sin(hash)) - 0.5) * 0.025), lng: fallback.lng + ((Math.abs(Math.cos(hash)) - 0.5) * 0.025), isFallback: true } };
                         }
                     }
                     return c;
@@ -374,58 +523,36 @@
 
             useEffect(() => {
                 if (!mapRef.current) return;
-
                 if (!mapInstanceRef.current) {
                     const map = L.map(mapRef.current).setView([24.9631, 121.2238], 12);
-                    
-                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', {
-                        maxZoom: 20, 
-                        attribution: '&copy; Google Maps'
-                    }).addTo(map);
-
+                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
                     mapInstanceRef.current = map;
-                    
                     markersLayerRef.current = L.markerClusterGroup({
-                        maxClusterRadius: 40,
-                        spiderfyOnMaxZoom: true,
-                        disableClusteringAtZoom: 15,
+                        maxClusterRadius: 40, spiderfyOnMaxZoom: true, disableClusteringAtZoom: 15,
                         iconCreateFunction: function(cluster) {
-                            return L.divIcon({
-                                html: `<div style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; font-weight: 900; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(99,102,241,0.4); border: 3px solid white; font-size: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${cluster.getChildCount()}</div>`,
-                                className: 'custom-cluster-icon',
-                                iconSize: [44, 44]
-                            });
+                            return L.divIcon({ html: `<div style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; font-weight: 900; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(99,102,241,0.4); border: 3px solid white; font-size: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${cluster.getChildCount()}</div>`, className: 'custom-cluster-icon', iconSize: [44, 44] });
                         }
                     }).addTo(map);
                 }
-
                 markersLayerRef.current.clearLayers();
                 const newMarkers = [];
-
                 activeCases.forEach(c => {
                     let color = '#6366f1';
-                    
-                    if (c.status === 'CLOSED' || c.status === 'MERGED') {
-                        color = '#94a3b8'; // 已結案顯示灰色
-                    } else {
-                        if (c.category === 'A1') color = '#ef4444';
-                        else if (c.category === 'REPLY') color = '#06b6d4';
-                        else if (c.category === 'TEMP') color = '#f97316';
-                        else if (c.category === 'OTHER_UNIT') color = '#3b82f6';
+                    if (c.status === 'CLOSED' || c.status === 'MERGED') color = '#94a3b8';
+                    else {
+                        if (c.category === 'A1') color = '#ef4444'; else if (c.category === 'REPLY' || c.category === 'OTHER') color = '#06b6d4';
+                        else if (c.category === 'TEMP') color = '#f97316'; else if (c.category === 'OTHER_UNIT') color = '#3b82f6';
                     }
-
                     const markerHtml = `<div style="width: 24px; height: 24px; background: ${color}; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
                     const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
                     const marker = L.marker([c.location.lat, c.location.lng], { icon });
-                    
                     const isClosed = c.status === 'CLOSED' || c.status === 'MERGED';
-                    
                     const tooltipContent = `
                         <div style="min-width: 200px;">
                             <div style="font-size: 11px; font-weight: 900; color: ${color}; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                 <div style="width:8px; height:8px; border-radius:50%; background-color:${color};"></div>
                                 ${isClosed ? '<span style="background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px;">已結案</span>' : ''}
-                                ${c.category === 'SURVEY' ? '會勘' : c.category === 'A1' ? 'A1事故' : '一般案件'}
+                                ${c.category === 'SURVEY' ? '會勘' : c.category === 'A1' ? 'A1事故' : c.category === 'OTHER' ? (c.extData?.customCategoryName || '其他') : '一般案件'}
                                 ${c.location.isFallback ? '<span style="background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 6px; margin-left: auto; font-size: 10px;">概略位置</span>' : ''}
                             </div>
                             <div style="font-size: 15px; font-weight: 800; color: ${isClosed ? '#64748b' : '#1e293b'}; text-decoration: ${isClosed ? 'line-through' : 'none'}; margin-bottom: 6px; line-height: 1.3;">${c.location.address}</div>
@@ -433,12 +560,9 @@
                             <div style="margin-top: 8px; font-size: 12px; color: ${color}; font-weight: bold; background: ${color}15; padding: 6px 8px; border-radius: 8px; text-align: center;">點擊查看詳情 👉</div>
                         </div>
                     `;
-
                     marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -12], opacity: 1, className: 'custom-tooltip shadow-float border-0 rounded-xl' });
-                    marker.on('click', () => onSelectCase(c));
-                    newMarkers.push(marker);
+                    marker.on('click', () => onSelectCase(c)); newMarkers.push(marker);
                 });
-                
                 markersLayerRef.current.addLayers(newMarkers);
                 setTimeout(() => mapInstanceRef.current.invalidateSize(), 300);
             }, [activeCases, onSelectCase]);
@@ -446,44 +570,23 @@
             const handleSearch = async (e) => {
                 if (e) e.preventDefault();
                 if (!searchInput.trim()) return;
-
-                setIsSearching(true);
-                setSearchError('');
-
+                setIsSearching(true); setSearchError('');
                 try {
                     const query = searchInput.includes('桃園') ? searchInput : `桃園市${searchInput}`;
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-                    const response = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, { headers: { 'Accept-Language': 'zh-TW' } });
                     const data = await response.json();
-
                     if (data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lng = parseFloat(data[0].lon);
-
+                        const lat = parseFloat(data[0].lat); const lng = parseFloat(data[0].lon);
                         if (mapInstanceRef.current) {
                             mapInstanceRef.current.flyTo([lat, lng], 17, { duration: 1.5 });
-
-                            if (searchMarkerRef.current) {
-                                mapInstanceRef.current.removeLayer(searchMarkerRef.current);
-                            }
-
-                            const iconHtml = `<div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50% 50% 0 50%; transform: rotate(45deg); border: 3px solid white; box-shadow: 2px 2px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>`;
-                            const searchIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [32, 32], iconAnchor: [16, 32] });
-
+                            if (searchMarkerRef.current) mapInstanceRef.current.removeLayer(searchMarkerRef.current);
+                            const searchIcon = L.divIcon({ html: `<div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50% 50% 0 50%; transform: rotate(45deg); border: 3px solid white; box-shadow: 2px 2px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>`, className: '', iconSize: [32, 32], iconAnchor: [16, 32] });
                             const newMarker = L.marker([lat, lng], { icon: searchIcon }).addTo(mapInstanceRef.current);
                             newMarker.bindTooltip(`<div style="min-width: 120px; text-align: center;"><div style="font-size: 12px; font-weight: 900; color: #059669; margin-bottom: 4px;">📍 搜尋定位點</div><div style="font-size: 14px; font-weight: bold; color: #1e293b;">${searchInput}</div></div>`, { direction: 'top', offset: [0, -30], className: 'custom-tooltip shadow-float border-0 rounded-xl', opacity: 0.95 }).openTooltip();
                             searchMarkerRef.current = newMarker;
                         }
-                    } else {
-                        setSearchError('找不到該地址，請嘗試加上更完整的行政區或路段名。');
-                        setTimeout(() => setSearchError(''), 3500);
-                    }
-                } catch (err) {
-                    setSearchError('定位服務暫時無法使用，請稍後再試。');
-                    setTimeout(() => setSearchError(''), 3500);
-                } finally {
-                    setIsSearching(false);
-                }
+                    } else { setSearchError('找不到該地址'); setTimeout(() => setSearchError(''), 3500); }
+                } catch (err) { setSearchError('定位服務異常'); setTimeout(() => setSearchError(''), 3500); } finally { setIsSearching(false); }
             };
 
             return (
@@ -491,38 +594,16 @@
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 pl-2 gap-4">
                         <div>
                             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icons.MapIcon /> 案件空間分布</h3>
-                            <p className="text-sm text-slate-400 mt-1 font-medium">使用 Google Maps 街道底圖 (道路資訊最新)，包含已結案歷史案件 (灰色標記)</p>
+                            <p className="text-sm text-slate-400 mt-1 font-medium">使用 Google Maps 街道底圖 (道路資訊最新)</p>
                         </div>
-                        
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
                             <form onSubmit={handleSearch} className="relative w-full sm:w-72 xl:w-80">
-                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                                    <Icons.Search />
-                                </div>
-                                <input 
-                                    type="text" 
-                                    placeholder="在地圖上搜尋地址或路口..." 
-                                    className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500/30 transition-all font-bold text-slate-700 placeholder-slate-400"
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                />
-                                <button 
-                                    type="submit" 
-                                    disabled={isSearching}
-                                    className="absolute inset-y-1.5 right-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {isSearching ? '尋找中' : '定位'}
-                                </button>
-                                {searchError && (
-                                    <div className="absolute top-full left-0 mt-2 bg-rose-50 text-rose-600 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 shadow-sm z-10 flex items-center gap-1 animate-fade-in">
-                                        <Icons.Alert /> {searchError}
-                                    </div>
-                                )}
+                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400"><Icons.Search /></div>
+                                <input type="text" placeholder="在地圖上搜尋地址或路口..." className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500/30 transition-all font-bold text-slate-700 placeholder-slate-400" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+                                <button type="submit" disabled={isSearching} className="absolute inset-y-1.5 right-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50">{isSearching ? '尋找中' : '定位'}</button>
+                                {searchError && <div className="absolute top-full left-0 mt-2 bg-rose-50 text-rose-600 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 shadow-sm z-10 flex items-center gap-1 animate-fade-in"><Icons.Alert /> {searchError}</div>}
                             </form>
-                            
-                            <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-xl font-bold border border-indigo-100 whitespace-nowrap hidden sm:block">
-                                地圖案件數：{activeCases.length}
-                            </span>
+                            <span className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-xl font-bold border border-indigo-100 whitespace-nowrap hidden sm:block">地圖案件數：{activeCases.length}</span>
                         </div>
                     </div>
                     <div ref={mapRef} className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 z-0 relative"></div>
@@ -535,36 +616,23 @@
             const [subTab, setSubTab] = useState('ALL');
 
             const modeFilteredCases = cases.filter(c => isSpecialMode ? c.caseType === 'SPECIAL' : c.caseType !== 'SPECIAL');
-            
-            const counts = {
-                PROCESSING: modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED').length,
-                CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED' || c.status === 'MERGED').length
-            };
+            const counts = { PROCESSING: modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED').length, CLOSED: modeFilteredCases.filter(c => c.status === 'CLOSED' || c.status === 'MERGED').length, CALENDAR: modeFilteredCases.filter(c => !!c.extData?.surveyDate).length };
 
-            useEffect(() => {
-                if (activeTab !== 'PROCESSING') setSubTab('ALL');
-            }, [activeTab]);
+            useEffect(() => { if (activeTab !== 'PROCESSING') setSubTab('ALL'); }, [activeTab]);
 
             let tabFilteredCases = modeFilteredCases.filter(c => {
                 if (activeTab === 'PROCESSING') return c.status !== 'CLOSED' && c.status !== 'MERGED';
                 if (activeTab === 'CLOSED') return c.status === 'CLOSED' || c.status === 'MERGED';
-                return true;
+                return true; // CALENDAR tab handles its own rendering
             });
 
             if (activeTab === 'PROCESSING') {
-                if (subTab === 'WARNING') {
-                    tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'WARNING');
-                } else if (subTab === 'OVERDUE') {
-                    tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'OVERDUE');
-                }
+                if (subTab === 'WARNING') tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'WARNING');
+                else if (subTab === 'OVERDUE') tabFilteredCases = tabFilteredCases.filter(c => getDeadlineStatus(c) === 'OVERDUE');
             }
             
             const processingCases = modeFilteredCases.filter(c => c.status !== 'CLOSED' && c.status !== 'MERGED');
-            const subCounts = {
-                ALL: processingCases.length,
-                WARNING: processingCases.filter(c => getDeadlineStatus(c) === 'WARNING').length,
-                OVERDUE: processingCases.filter(c => getDeadlineStatus(c) === 'OVERDUE').length
-            };
+            const subCounts = { ALL: processingCases.length, WARNING: processingCases.filter(c => getDeadlineStatus(c) === 'WARNING').length, OVERDUE: processingCases.filter(c => getDeadlineStatus(c) === 'OVERDUE').length };
 
             const filteredCases = tabFilteredCases.filter(c => {
                 const keyword = filter.toLowerCase();
@@ -597,131 +665,125 @@
 
                     {activeTab === 'PROCESSING' && (
                         <div className="flex flex-wrap gap-2 mb-6 mx-auto md:mx-0 animate-fade-in">
-                            <button onClick={() => setSubTab('ALL')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'ALL' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>
-                                全部辦理中 ({subCounts.ALL})
-                            </button>
-                            <button onClick={() => setSubTab('WARNING')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'WARNING' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'}`}>
-                                即將逾期 ({subCounts.WARNING})
-                            </button>
-                            <button onClick={() => setSubTab('OVERDUE')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'OVERDUE' ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'}`}>
-                                已逾期 ({subCounts.OVERDUE})
-                            </button>
+                            <button onClick={() => setSubTab('ALL')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'ALL' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>全部辦理中 ({subCounts.ALL})</button>
+                            <button onClick={() => setSubTab('WARNING')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'WARNING' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'}`}>即將逾期 ({subCounts.WARNING})</button>
+                            <button onClick={() => setSubTab('OVERDUE')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${subTab === 'OVERDUE' ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'}`}>已逾期 ({subCounts.OVERDUE})</button>
                         </div>
                     )}
 
                     <div className="relative mb-6">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400"><Icons.Search /></div>
-                        <input type="text" placeholder={`輸入關鍵字 (如：${isSpecialMode ? '交辦內容、承辦人、備註' : '地點、陳情人、文號、內容、備註'})...`}
+                        <input type="text" placeholder={`輸入關鍵字 (如：${isSpecialMode ? '交辦內容、承辦人、備註' : '地點、陳情人、文號(含紀錄文號)、內容、備註'})...`}
                             className={`w-full pl-12 pr-4 py-4 bg-white shadow-soft rounded-2xl text-slate-700 placeholder-slate-400 focus:ring-4 border-none transition-all ${isSpecialMode ? 'focus:ring-red-500/20' : 'focus:ring-indigo-500/20'}`}
                             value={filter} onChange={(e) => setFilter(e.target.value)} />
                     </div>
                     
-                    <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
-                                <tr>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">預警狀態</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '收文/會勘日'}</th>
-                                    <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人/主政單位'}</th>
-                                    {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
-                                    <th className="px-4 py-5 font-bold w-1/4">{isSpecialMode ? '交辦內容' : '陳情內容'}</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">派工日期</th>
-                                    <th className="px-4 py-5 font-bold whitespace-nowrap">結案日期<br/><span className="text-[10px] text-slate-400 font-normal">(結案期限)</span></th>
-                                    <th className="px-4 py-5 font-bold text-center whitespace-nowrap">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredCases.map((c) => (
-                                    <tr key={c.id} className={`${getRowStatusClass(c)} group`}>
-                                        <td className="px-4 py-4">
-                                            <div className="flex flex-col gap-2 items-start">
+                    {activeTab === 'CALENDAR' ? (
+                        <CalendarView cases={modeFilteredCases} onSelectCase={onSelectCase} />
+                    ) : (
+                        <>
+                            <div className="hidden md:block flex-1 overflow-y-auto bg-white rounded-3xl shadow-soft">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-slate-400 uppercase tracking-wider sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100">
+                                        <tr>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">狀態 / 類別</th>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">預警狀態</th>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '收件日期' : '收文 / 會勘時間'}</th>
+                                            <th className="px-4 py-5 font-bold">{isSpecialMode ? '負責承辦人' : '地點資訊'}</th>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">{isSpecialMode ? '交辦時間' : '陳情人/主政單位'}</th>
+                                            {!isSpecialMode && <th className="px-4 py-5 font-bold whitespace-nowrap">承辦人</th>}
+                                            <th className="px-4 py-5 font-bold w-1/4">{isSpecialMode ? '交辦內容' : '陳情內容'}</th>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">派工日期</th>
+                                            <th className="px-4 py-5 font-bold whitespace-nowrap">結案日期<br/><span className="text-[10px] text-slate-400 font-normal">(結案期限)</span></th>
+                                            <th className="px-4 py-5 font-bold text-center whitespace-nowrap">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {filteredCases.map((c) => (
+                                            <tr key={c.id} className={`${getRowStatusClass(c)} group`}>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex flex-col gap-2 items-start">
+                                                        <StatusBadge status={c.status} />
+                                                        <CategoryBadge caseData={c} />
+                                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Link/> 已併案</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap"><WarningBadge caseData={c} /></td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
+                                                    {isSpecialMode ? (c.extData?.receiveDate || '-') : (formatDateTime(c.extData?.surveyDate) !== '-' ? formatDateTime(c.extData.surveyDate) : (c.extData?.replyDate || c.extData?.receiveDate || '-'))}
+                                                </td>
+                                                {isSpecialMode ? (
+                                                    <>
+                                                        <td className="px-4 py-4 font-bold text-slate-700">{c.extData?.assignee || '未指派'}</td>
+                                                        <td className="px-4 py-4 text-slate-500 whitespace-nowrap">{c.extData?.assignDate || '-'}</td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td className="px-4 py-4">
+                                                            <div className="font-bold text-slate-700">{c.location?.district || '-'}</div>
+                                                            <div className="text-slate-500 text-xs mt-1 truncate max-w-[140px]" title={c.location?.address}>{c.location?.address || '-'}</div>
+                                                        </td>
+                                                        <td className="px-4 py-4 font-medium text-slate-600 whitespace-nowrap">{c.category === 'SELF' ? <span className="text-slate-400 italic">無</span> : c.petitioner?.name || '-'}</td>
+                                                        <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">{c.extData?.assignee || '未指派'}</td>
+                                                    </>
+                                                )}
+                                                <td className="px-4 py-4"><div className="text-slate-600 line-clamp-2 leading-relaxed">{c.content}</div></td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-slate-600">{c.extData?.dispatchDate || '-'}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="text-slate-800 font-bold">{c.extData?.completionDate || '-'}</div>
+                                                    {c.status !== 'CLOSED' && c.status !== 'MERGED' && (<div className={`text-xs mt-1 ${getDeadlineColor(c)}`}>({c.extData?.completionDeadline || '無期限'})</div>)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    <button onClick={() => onSelectCase(c)} className={`font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap shadow-sm border ${isSpecialMode ? 'text-red-700 bg-white border-red-200 hover:bg-red-50' : 'text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50'}`}>查看詳情</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {filteredCases.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400"><Icons.Archive /><p className="mt-4 font-medium tracking-wide">目前沒有符合條件的案件</p></div>}
+                            </div>
+
+                            <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
+                                {filteredCases.map(c => (
+                                    <div key={c.id} className={`${getRowStatusClass(c)} bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex flex-col gap-2">
                                                 <StatusBadge status={c.status} />
-                                                <CategoryBadge category={c.category} />
-                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Link/> 已併案</span>}
+                                                <CategoryBadge caseData={c} />
+                                                {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Icons.Link/> 已併案</span>}
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap"><WarningBadge caseData={c} /></td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-slate-600 font-medium">
-                                            {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || '-')}
-                                        </td>
+                                            <div className="flex flex-col items-end gap-2">
+                                                 <WarningBadge caseData={c} />
+                                                 {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 mb-3">
+                                            <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '收文 / 會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (formatDateTime(c.extData?.surveyDate) !== '-' ? formatDateTime(c.extData.surveyDate) : (c.extData?.replyDate || c.extData?.receiveDate || '-'))}</span>
+                                            <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
+                                            <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || <span className={getDeadlineColor(c)}>{c.extData?.completionDeadline || '-'}</span>}</span>
+                                        </div>
                                         {isSpecialMode ? (
                                             <>
-                                                <td className="px-4 py-4 font-bold text-slate-700">{c.extData?.assignee || '未指派'}</td>
-                                                <td className="px-4 py-4 text-slate-500 whitespace-nowrap">{c.extData?.assignDate || '-'}</td>
+                                                <div className="font-bold text-slate-800 mb-1 leading-snug">承辦人：{c.extData?.assignee || '未指派'}</div>
+                                                <div className="text-sm text-slate-400 mb-3">交辦日期：{c.extData?.assignDate || '-'}</div>
                                             </>
                                         ) : (
                                             <>
-                                                <td className="px-4 py-4">
-                                                    <div className="font-bold text-slate-700">{c.location?.district || '-'}</div>
-                                                    <div className="text-slate-500 text-xs mt-1 truncate max-w-[140px]" title={c.location?.address}>{c.location?.address || '-'}</div>
-                                                </td>
-                                                <td className="px-4 py-4 font-medium text-slate-600 whitespace-nowrap">
-                                                    {c.category === 'SELF' ? <span className="text-slate-400 italic">無</span> : c.petitioner?.name || '-'}
-                                                </td>
-                                                <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">{c.extData?.assignee || '未指派'}</td>
+                                                <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
+                                                    {c.category !== 'SELF' && <span>{c.category === 'OTHER_UNIT' ? '主政單位' : '陳情人'}：{c.petitioner?.name || '-'}</span>}
+                                                    {c.category === 'SELF' && <span>自辦案件</span>}
+                                                    <span>承辦人：<span className="font-bold text-slate-600">{c.extData?.assignee || '未指派'}</span></span>
+                                                </div>
                                             </>
                                         )}
-                                        <td className="px-4 py-4"><div className="text-slate-600 line-clamp-2 leading-relaxed">{c.content}</div></td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-slate-600">{c.extData?.dispatchDate || '-'}</td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <div className="text-slate-800 font-bold">{c.extData?.completionDate || '-'}</div>
-                                            {c.status !== 'CLOSED' && c.status !== 'MERGED' && (
-                                                <div className={`text-xs mt-1 ${getDeadlineColor(c)}`}>({c.extData?.completionDeadline || '無期限'})</div>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <button onClick={() => onSelectCase(c)} className={`font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap shadow-sm border ${isSpecialMode ? 'text-red-700 bg-white border-red-200 hover:bg-red-50' : 'text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50'}`}>查看詳情</button>
-                                        </td>
-                                    </tr>
+                                        <div className="text-sm text-slate-600 line-clamp-2 bg-slate-50/80 p-3 rounded-2xl leading-relaxed">{c.content}</div>
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
-                        {filteredCases.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-400"><Icons.Archive /><p className="mt-4 font-medium tracking-wide">目前沒有符合條件的案件</p></div>
-                        )}
-                    </div>
-
-                    <div className="md:hidden flex-1 overflow-y-auto space-y-4 pb-20">
-                        {filteredCases.map(c => (
-                            <div key={c.id} className={`${getRowStatusClass(c)} bg-white p-5 rounded-3xl shadow-soft cursor-pointer active:scale-95 transition-transform border-l-4 ${isSpecialMode ? 'border-red-400' : 'border-indigo-400'}`} onClick={() => onSelectCase(c)}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex flex-col gap-2">
-                                        <StatusBadge status={c.status} />
-                                        <CategoryBadge category={c.category} />
-                                        {c.mergedInto && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Icons.Link/> 已併案</span>}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2">
-                                         <WarningBadge caseData={c} />
-                                         {!isSpecialMode && c.location?.district && <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2">{c.location.district}</span>}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 mb-3">
-                                    <span className="bg-slate-100 px-2 py-1 rounded-md">{isSpecialMode ? '收件' : '收文/會勘'}: {isSpecialMode ? (c.extData?.receiveDate || '-') : (c.extData?.surveyDate || c.extData?.replyDate || c.extData?.receiveDate || '-')}</span>
-                                    <span className="bg-slate-100 px-2 py-1 rounded-md">派工: {c.extData?.dispatchDate || '-'}</span>
-                                    <span className={`px-2 py-1 rounded-md bg-slate-100`}>結案: {c.extData?.completionDate || <span className={getDeadlineColor(c)}>{c.extData?.completionDeadline || '-'}</span>}</span>
-                                </div>
-                                {isSpecialMode ? (
-                                    <>
-                                        <div className="font-bold text-slate-800 mb-1 leading-snug">承辦人：{c.extData?.assignee || '未指派'}</div>
-                                        <div className="text-sm text-slate-400 mb-3">交辦日期：{c.extData?.assignDate || '-'}</div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="font-bold text-slate-800 mb-1 leading-snug">{c.location?.address}</div>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
-                                            {c.category !== 'SELF' && <span>{c.category === 'OTHER_UNIT' ? '主政單位' : '陳情人'}：{c.petitioner?.name || '-'}</span>}
-                                            {c.category === 'SELF' && <span>自辦案件</span>}
-                                            <span>承辦人：<span className="font-bold text-slate-600">{c.extData?.assignee || '未指派'}</span></span>
-                                        </div>
-                                    </>
-                                )}
-                                <div className="text-sm text-slate-600 line-clamp-2 bg-slate-50/80 p-3 rounded-2xl leading-relaxed">{c.content}</div>
+                                {filteredCases.length === 0 && <div className="text-center py-16 text-slate-400 font-medium">目前沒有符合條件的案件</div>}
                             </div>
-                        ))}
-                        {filteredCases.length === 0 && <div className="text-center py-16 text-slate-400 font-medium">目前沒有符合條件的案件</div>}
-                    </div>
+                        </>
+                    )}
                 </div>
             );
         };
@@ -732,12 +794,8 @@
                 caseType: isSpecialMode ? 'SPECIAL' : 'NORMAL',
                 category: isSpecialMode ? 'DIRECTOR' : 'SURVEY', 
                 name: '', district: '桃園區', address: '', content: '',
-                extData: { 
-                    receiveDate: '', surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false,
-                    assignDate: '', handlingStatus: '', replyDate: '', replyDocNo: '', replyContent: '', note: '', forwardUnit: ''
-                }
+                extData: { receiveDate: '', surveyDate: '', surveyDocNo: '', assignee: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false, assignDate: '', handlingStatus: '', replyDate: '', replyDocNo: '', replyContent: '', note: '', forwardUnit: '', customCategoryName: '' }
             });
-
             const [coords, setCoords] = useState(DISTRICT_COORDS['桃園區']);
             const [isLocating, setIsLocating] = useState(false);
             const [userDragged, setUserDragged] = useState(false);
@@ -745,15 +803,11 @@
             useEffect(() => {
                 if (isSpecialMode || !formData.address) return;
                 if (userDragged) return;
-                
                 const timer = setTimeout(async () => {
                     setIsLocating(true);
                     const newCoords = await advancedGeocode(formData.district, formData.address);
-                    if (newCoords) {
-                        setCoords(newCoords);
-                    } else if (!userDragged) {
-                        setCoords(DISTRICT_COORDS[formData.district] || DISTRICT_COORDS['桃園區']);
-                    }
+                    if (newCoords) setCoords(newCoords);
+                    else if (!userDragged) setCoords(DISTRICT_COORDS[formData.district] || DISTRICT_COORDS['桃園區']);
                     setIsLocating(false);
                 }, 800);
                 return () => clearTimeout(timer);
@@ -765,23 +819,12 @@
                 e.preventDefault(); setIsSubmitting(true);
                 try { 
                     let submitData = { ...formData };
-                    if (!isSpecialMode && formData.category === 'FORWARD') {
-                         submitData.status = 'CLOSED';
-                         submitData.extData.completionDate = getLocalISODate();
-                    }
-
+                    if (!isSpecialMode && formData.category === 'FORWARD') { submitData.status = 'CLOSED'; submitData.extData.completionDate = getLocalISODate(); }
                     if (!isSpecialMode) {
-                        submitData.location = { 
-                            district: submitData.district, 
-                            address: submitData.address, 
-                            lat: coords.lat, 
-                            lng: coords.lng,
-                            isFallback: !userDragged && coords.lat === DISTRICT_COORDS[submitData.district]?.lat 
-                        };
+                        submitData.location = { district: submitData.district, address: submitData.address, lat: coords.lat, lng: coords.lng, isFallback: !userDragged && coords.lat === DISTRICT_COORDS[submitData.district]?.lat };
                     }
-
                     await onSubmit(submitData); 
-                } catch (err) { console.warn(err); } finally { setIsSubmitting(false); }
+                } catch (err) { } finally { setIsSubmitting(false); }
             };
 
             const themeColor = isSpecialMode ? 'text-red-500' : 'text-primary';
@@ -809,24 +852,30 @@
                                         <select className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.category} onChange={e => {
                                             const newCategory = e.target.value;
                                             const baseDate = formData.extData.surveyDate || formData.extData.replyDate || formData.extData.receiveDate;
+                                            const baseDateStr = baseDate.substring(0, 10);
                                             let newDeadline = '';
-                                            if (newCategory === 'A1') newDeadline = calculateMonthsDeadline(baseDate, 1);
-                                            else if (['SURVEY', 'REPLY', 'OTHER_UNIT', 'SELF'].includes(newCategory)) newDeadline = calculateMonthsDeadline(baseDate, 2);
+                                            if (newCategory === 'A1') newDeadline = calculateMonthsDeadline(baseDateStr, 1);
+                                            else if (['SURVEY', 'REPLY', 'OTHER_UNIT', 'SELF', 'OTHER'].includes(newCategory)) newDeadline = calculateMonthsDeadline(baseDateStr, 2);
                                             setFormData(prev => ({...prev, category: newCategory, extData: { ...prev.extData, completionDeadline: newDeadline }}));
                                         }}>
                                             {isSpecialMode ? (
                                                 <><option value="DIRECTOR">局長案</option><option value="TEMP">臨時交辦案件</option><option value="OTHER_SPECIAL">其他(特殊)</option></>
                                             ) : (
-                                                <><option value="SURVEY">會勘</option><option value="REPLY">回復</option><option value="A1">A1事故</option><option value="FORWARD">函轉</option><option value="SELF">自辦</option><option value="OTHER_UNIT">其他單位辦理</option></>
+                                                <><option value="SURVEY">會勘</option><option value="REPLY">回復</option><option value="A1">A1事故</option><option value="FORWARD">函轉</option><option value="SELF">自辦</option><option value="OTHER_UNIT">其他單位辦理</option><option value="OTHER">其他</option></>
                                             )}
                                         </select>
                                     </div>
+                                    {formData.category === 'OTHER' && (
+                                        <div className="space-y-1.5 md:col-span-2">
+                                            <label className="text-sm font-medium text-slate-600 px-1">自訂案件類別名稱</label>
+                                            <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.extData.customCategoryName || ''} onChange={e => handleExtData('customCategoryName', e.target.value)} placeholder="輸入類別名稱 (例如：說明會、現勘)..." />
+                                        </div>
+                                    )}
                                     <div className="space-y-1.5">
                                         <label className="text-sm font-medium text-slate-600 px-1">收文 / 收件日期</label>
                                         <input required type="date" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} value={formData.extData.receiveDate} onChange={e => {
-                                            const val = e.target.value;
-                                            handleExtData('receiveDate', val);
-                                            if (formData.category === 'FORWARD' || formData.category === 'OTHER_UNIT' || formData.category === 'SELF') handleExtData('completionDeadline', calculateMonthsDeadline(val, 2));
+                                            const val = e.target.value; handleExtData('receiveDate', val);
+                                            if (formData.category === 'FORWARD' || formData.category === 'OTHER_UNIT') handleExtData('completionDeadline', calculateMonthsDeadline(val, 2));
                                         }} />
                                     </div>
                                     
@@ -860,7 +909,6 @@
                                             <div className="md:col-span-2 space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
                                                 <input required type="text" className={`w-full rounded-2xl px-4 py-3.5 focus:ring-4 ${themeRing}`} placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => { setFormData({...formData, address: e.target.value}); setUserDragged(false); }} />
-                                                
                                                 <div className="mt-3 relative rounded-2xl overflow-hidden border border-slate-200 h-48 w-full shadow-inner">
                                                     <div className="absolute top-2 left-2 z-10 bg-white/95 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm text-slate-600 flex items-center gap-2">
                                                         {isLocating ? <span className="animate-pulse text-indigo-500">自動定位中...</span> : '📍 若定位不準，可直接拖曳紅點微調位置'}
@@ -875,14 +923,13 @@
                                 </div>
                             </section>
 
-                            {}
-                            {!isSpecialMode && formData.category === 'REPLY' ? (
+                            {!isSpecialMode && (formData.category === 'REPLY' || formData.category === 'OTHER') ? (
                                 <section>
-                                    <h3 className="text-sm font-bold text-cyan-600 uppercase tracking-wider mb-5 px-1">回復預定資訊</h3>
+                                    <h3 className="text-sm font-bold text-cyan-600 uppercase tracking-wider mb-5 px-1">{formData.category === 'OTHER' ? formData.extData.customCategoryName || '其他' : '回復'}預定資訊</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-cyan-50/50 p-6 rounded-3xl border border-cyan-100">
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">承辦人</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="承辦人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} /></div>
-                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">回復日期</label><input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={formData.extData.replyDate} onChange={e => { const val = e.target.value; handleExtData('replyDate', val); handleExtData('completionDeadline', calculateMonthsDeadline(val, 2)); }} /></div>
-                                        <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">回復文號</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="輸入回復文號" value={formData.extData.replyDocNo} onChange={e => handleExtData('replyDocNo', e.target.value)} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">回復/辦理日期</label><input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={formData.extData.replyDate} onChange={e => { const val = e.target.value; handleExtData('replyDate', val); handleExtData('completionDeadline', calculateMonthsDeadline(val, 2)); }} /></div>
+                                        <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">回復/發文文號</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="輸入文號" value={formData.extData.replyDocNo} onChange={e => handleExtData('replyDocNo', e.target.value)} /></div>
                                         <div className="md:col-span-2 bg-cyan-100/50 p-4 rounded-2xl border border-cyan-200 mt-2">
                                             <label className="text-sm font-bold text-cyan-700 mb-2 flex items-center gap-1"><Icons.Clock /> 期限設定 (自動推算)</label>
                                             <div><span className="text-xs font-bold text-cyan-600 mb-1 block">結案期限 (+2個月)</span><input type="date" className="w-full rounded-xl px-3 py-2.5 bg-white text-cyan-700 border border-cyan-200" value={formData.extData.completionDeadline} onChange={e => handleExtData('completionDeadline', e.target.value)} /></div>
@@ -904,7 +951,7 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">承辦人</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="承辦人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘通知文號</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="輸入文號" value={formData.extData.surveyDocNo} onChange={e => handleExtData('surveyDocNo', e.target.value)} /></div>
-                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘日期</label><input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={formData.extData.surveyDate} onChange={e => { const val = e.target.value; handleExtData('surveyDate', val); handleExtData('completionDeadline', calculateMonthsDeadline(val, 2)); }} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘時間</label><input type="datetime-local" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={getDatetimeLocal(formData.extData.surveyDate)} onChange={e => { const val = e.target.value; handleExtData('surveyDate', val); handleExtData('completionDeadline', calculateMonthsDeadline(val.substring(0,10), 2)); }} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="輸入紀錄文號" value={formData.extData.recordDocNo || ''} onChange={e => handleExtData('recordDocNo', e.target.value)} /></div>
                                         <div className="md:col-span-2 bg-blue-100/50 p-4 rounded-2xl border border-blue-200 mt-2">
                                             <label className="text-sm font-bold text-blue-700 mb-2 flex items-center gap-1"><Icons.Clock /> 期限設定 (自動推算)</label>
@@ -918,7 +965,7 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100">
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">承辦人</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="承辦人員姓名" value={formData.extData.assignee} onChange={e => handleExtData('assignee', e.target.value)} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">{formData.category === 'A1' ? '會勘通知文號(分局來文)' : '會勘通知文號'}</label><input type="text" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" placeholder="輸入文號" value={formData.extData.surveyDocNo} onChange={e => handleExtData('surveyDocNo', e.target.value)} /></div>
-                                        <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">會勘日期</label><input type="date" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={formData.extData.surveyDate} onChange={e => { const val = e.target.value; handleExtData('surveyDate', val); handleExtData('recordDeadline', calculateWorkingDays(val, 3)); handleExtData('completionDeadline', calculateMonthsDeadline(val, formData.category === 'A1' ? 1 : 2)); }} /></div>
+                                        <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">會勘時間</label><input type="datetime-local" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={getDatetimeLocal(formData.extData.surveyDate)} onChange={e => { const val = e.target.value; handleExtData('surveyDate', val); handleExtData('recordDeadline', calculateWorkingDays(val.substring(0,10), 3)); handleExtData('completionDeadline', calculateMonthsDeadline(val.substring(0,10), formData.category === 'A1' ? 1 : 2)); }} /></div>
                                         <div className="md:col-span-2 bg-indigo-100/50 p-4 rounded-2xl border border-indigo-200 mt-2">
                                             <label className="text-sm font-bold text-indigo-700 mb-3 flex items-center gap-1"><Icons.Clock /> 期限設定 (依會勘日期自動推算)</label>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -946,7 +993,7 @@
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
             const isSpecialMode = caseData.caseType === 'SPECIAL';
-            const isReplyMode = !isSpecialMode && caseData.category === 'REPLY';
+            const isReplyMode = !isSpecialMode && (caseData.category === 'REPLY' || caseData.category === 'OTHER');
             const isForwardMode = !isSpecialMode && caseData.category === 'FORWARD';
             const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
             const [editingHistoryContent, setEditingHistoryContent] = useState('');
@@ -961,56 +1008,38 @@
             const [isEditingContent, setEditingContent] = useState(false);
             const [editedContent, setEditedContent] = useState('');
             
-            const [isEditingBasic, setIsEditingBasic] = useState(false);
-            const [editedBasic, setEditedBasic] = useState({
-                receiveDate: '',
-                assignee: '',
-                surveyDocNo: '',
-                replyDocNo: ''
-            });
+            // 基本資訊獨立修改 (左側下方)
+            const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
+            const [editBasicInfoData, setEditBasicInfoData] = useState({ receiveDate: '', assignee: '', docNo: '' });
             
             const [showMergePanel, setShowMergePanel] = useState(false);
             const [mergeSearchText, setMergeSearchText] = useState('');
 
             const [editExtData, setEditExtData] = useState({
-                receiveDate: '', surveyDate: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false,
-                assignDate: '', handlingStatus: '', assignee: '', replyDate: '', replyDocNo: '', replyContent: '', note: '', forwardUnit: ''
+                surveyDate: '', recordDeadline: '', recordActualDate: '', recordDocNo: '', surveyResolution: '', dispatchDate: '', completionDate: '', completionDeadline: '', noDispatchRequired: false,
+                handlingStatus: '', replyDate: '', replyContent: '', note: '', forwardUnit: ''
             });
 
             useEffect(() => {
-                setEditedAddress(caseData.location?.address || '');
-                setEditedDistrict(caseData.location?.district || '桃園區');
-                setEditCoords({ 
-                    lat: caseData.location?.lat || DISTRICT_COORDS[caseData.location?.district]?.lat || 24.9936, 
-                    lng: caseData.location?.lng || DISTRICT_COORDS[caseData.location?.district]?.lng || 121.2238 
+                setEditedAddress(caseData.location?.address || ''); setEditedDistrict(caseData.location?.district || '桃園區');
+                setEditCoords({ lat: caseData.location?.lat || DISTRICT_COORDS[caseData.location?.district]?.lat || 24.9936, lng: caseData.location?.lng || DISTRICT_COORDS[caseData.location?.district]?.lng || 121.2238 });
+                setUserDragged(false); setEditedContent(caseData.content || '');
+                setEditBasicInfoData({
+                    receiveDate: caseData.extData?.receiveDate || '', assignee: caseData.extData?.assignee || '', docNo: caseData.extData?.surveyDocNo || caseData.extData?.replyDocNo || ''
                 });
-                setUserDragged(false);
-
-                setEditedContent(caseData.content || '');
-                setEditedBasic({
-                    receiveDate: caseData.extData?.receiveDate || '',
-                    assignee: caseData.extData?.assignee || '',
-                    surveyDocNo: caseData.extData?.surveyDocNo || '',
-                    replyDocNo: caseData.extData?.replyDocNo || ''
-                });
-                
                 setEditExtData({
-                    receiveDate: caseData.extData?.receiveDate || '', surveyDate: caseData.extData?.surveyDate || '', recordDeadline: caseData.extData?.recordDeadline || '', recordActualDate: caseData.extData?.recordActualDate || '', recordDocNo: caseData.extData?.recordDocNo || '', surveyResolution: caseData.extData?.surveyResolution || '', dispatchDate: caseData.extData?.dispatchDate || '', completionDate: caseData.extData?.completionDate || '', completionDeadline: caseData.extData?.completionDeadline || '', noDispatchRequired: caseData.extData?.noDispatchRequired || false, assignDate: caseData.extData?.assignDate || '', handlingStatus: caseData.extData?.handlingStatus || '', assignee: caseData.extData?.assignee || '', replyDate: caseData.extData?.replyDate || '', replyDocNo: caseData.extData?.replyDocNo || '', replyContent: caseData.extData?.replyContent || '', note: caseData.extData?.note || '', forwardUnit: caseData.extData?.forwardUnit || ''
+                    surveyDate: caseData.extData?.surveyDate || '', recordDeadline: caseData.extData?.recordDeadline || '', recordActualDate: caseData.extData?.recordActualDate || '', recordDocNo: caseData.extData?.recordDocNo || '', surveyResolution: caseData.extData?.surveyResolution || '', dispatchDate: caseData.extData?.dispatchDate || '', completionDate: caseData.extData?.completionDate || '', completionDeadline: caseData.extData?.completionDeadline || '', noDispatchRequired: caseData.extData?.noDispatchRequired || false, handlingStatus: caseData.extData?.handlingStatus || '', replyDate: caseData.extData?.replyDate || '', replyContent: caseData.extData?.replyContent || '', note: caseData.extData?.note || '', forwardUnit: caseData.extData?.forwardUnit || ''
                 });
             }, [caseData.id, caseData]); 
 
             useEffect(() => {
                 if (!isEditingAddress || !editedAddress) return;
                 if (userDragged) return;
-                
                 const timer = setTimeout(async () => {
                     setIsLocating(true);
                     const newCoords = await advancedGeocode(editedDistrict, editedAddress);
-                    if (newCoords) {
-                        setEditCoords(newCoords);
-                    } else if (!userDragged) {
-                        setEditCoords(DISTRICT_COORDS[editedDistrict] || DISTRICT_COORDS['桃園區']);
-                    }
+                    if (newCoords) setEditCoords(newCoords);
+                    else if (!userDragged) setEditCoords(DISTRICT_COORDS[editedDistrict] || DISTRICT_COORDS['桃園區']);
                     setIsLocating(false);
                 }, 800);
                 return () => clearTimeout(timer);
@@ -1023,7 +1052,6 @@
                 try {
                     let actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
                     if (stage === 'MERGED') actionText = '更新併案內容進度';
-                    
                     let dataToSave = { ...editExtData };
                     if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
                         actionText = `【辦理情形】${editExtData.handlingStatus}`; dataToSave.handlingStatus = ''; 
@@ -1031,13 +1059,10 @@
                     if (stage === 'CLOSED' && !dataToSave.completionDate) dataToSave.completionDate = getLocalISODate();
                     await onUpdateStatus(caseData.id, stage, actionText, dataToSave);
                     if (isSpecialMode) setEditExtData(prev => ({ ...prev, handlingStatus: '' }));
-                } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
+                } catch(e) {} finally { setIsSubmitting(false); }
             };
 
-            const handleRevert = async () => {
-                setIsSubmitting(true);
-                try { await onUpdateStatus(caseData.id, 'PENDING', '案件恢復為辦理中', editExtData); } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
-            };
+            const handleRevert = async () => { setIsSubmitting(true); try { await onUpdateStatus(caseData.id, 'PENDING', '案件恢復為辦理中', editExtData); } catch(e) {} finally { setIsSubmitting(false); } };
 
             const delClick = () => {
                 setModalConfig({
@@ -1051,32 +1076,15 @@
                 });
             };
 
-            const handleSaveAddress = () => { 
-                onUpdateBasicInfo(caseData.id, { 
-                    location: { 
-                        ...caseData.location, 
-                        address: editedAddress, 
-                        district: editedDistrict,
-                        lat: editCoords.lat,
-                        lng: editCoords.lng,
-                        isFallback: false
-                    } 
-                }); 
-                setEditingAddress(false); 
-            };
+            const handleSaveAddress = () => { onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress, district: editedDistrict, lat: editCoords.lat, lng: editCoords.lng, isFallback: false } }); setEditingAddress(false); };
             const handleSaveContent = () => { onUpdateBasicInfo(caseData.id, { content: editedContent }); setEditingContent(false); };
-            
-            const handleSaveBasic = () => {
+            const handleSaveBasicInfo = () => {
+                const isReply = caseData.category === 'REPLY' || caseData.category === 'OTHER';
+                const docNoField = isReply ? 'replyDocNo' : 'surveyDocNo';
                 onUpdateBasicInfo(caseData.id, {
-                    extData: {
-                        ...caseData.extData,
-                        receiveDate: editedBasic.receiveDate,
-                        assignee: editedBasic.assignee,
-                        surveyDocNo: editedBasic.surveyDocNo,
-                        replyDocNo: editedBasic.replyDocNo
-                    }
+                    extData: { ...caseData.extData, receiveDate: editBasicInfoData.receiveDate, assignee: editBasicInfoData.assignee, [docNoField]: editBasicInfoData.docNo }
                 });
-                setIsEditingBasic(false);
+                setIsEditingBasicInfo(false);
             };
             
             const performMerge = (targetCaseId) => {
@@ -1121,15 +1129,13 @@
                             </div>
                             <div className="flex flex-wrap items-center gap-3 mb-6">
                                 <StatusBadge status={caseData.status} />
-                                <CategoryBadge category={caseData.category} />
+                                <CategoryBadge caseData={caseData} />
                                 {!isSpecialMode && caseData.location?.district && <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide border border-slate-200">{caseData.location.district}</span>}
                             </div>
                             
-                            {}
                             {isSpecialMode ? (
                                 <>
-                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">特殊交辦案件</h2>
-                                    <p className="text-slate-400 font-medium mb-8">負責人：{caseData.extData?.assignee || '未指派'}</p>
+                                    <h2 className="text-2xl font-black text-slate-800 leading-snug mb-8">特殊交辦案件</h2>
                                 </>
                             ) : (
                                 <>
@@ -1177,9 +1183,55 @@
                                 )}
                             </div>
 
+                            {}
+                            <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative border border-slate-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">案件基本資訊</span>
+                                    {caseData.status !== 'CLOSED' && !isEditingBasicInfo && (<button onClick={() => setIsEditingBasicInfo(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>)}
+                                </div>
+                                {isEditingBasicInfo ? (
+                                    <div className="flex flex-col gap-3 animate-fade-in">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-slate-500">收文/收件日期</label>
+                                            <input type="date" className={`w-full rounded-xl px-3 py-2 border border-slate-300 bg-white text-slate-700 ${themeRing}`} value={editBasicInfoData.receiveDate} onChange={e => setEditBasicInfoData({...editBasicInfoData, receiveDate: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-slate-500">承辦人</label>
+                                            <input type="text" className={`w-full rounded-xl px-3 py-2 border border-slate-300 bg-white text-slate-700 ${themeRing}`} value={editBasicInfoData.assignee} onChange={e => setEditBasicInfoData({...editBasicInfoData, assignee: e.target.value})} />
+                                        </div>
+                                        {!isSpecialMode && (
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-slate-500">{isReplyMode ? '回復/發文文號' : '通知文號'}</label>
+                                                <input type="text" className={`w-full rounded-xl px-3 py-2 border border-slate-300 bg-white text-slate-700 ${themeRing}`} value={editBasicInfoData.docNo} onChange={e => setEditBasicInfoData({...editBasicInfoData, docNo: e.target.value})} />
+                                            </div>
+                                        )}
+                                        <div className="flex justify-end gap-2 mt-2">
+                                            <button onClick={() => setIsEditingBasicInfo(false)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+                                            <button onClick={handleSaveBasicInfo} className={`px-4 py-1.5 text-xs font-bold ${themeBtn} text-white rounded-lg shadow-sm transition-colors`}>儲存修改</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="text-xs font-bold text-slate-400 mb-1">收文/收件日期</div>
+                                            <div className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-bold text-slate-400 mb-1">承辦人</div>
+                                            <div className="font-bold text-slate-700">{caseData.extData?.assignee || '未指派'}</div>
+                                        </div>
+                                        {!isSpecialMode && (
+                                            <div className="col-span-2">
+                                                <div className="text-xs font-bold text-slate-400 mb-1">{isReplyMode ? '回復/發文文號' : '通知文號'}</div>
+                                                <div className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || caseData.extData?.replyDocNo || '-'}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             {caseData.extData?.note && (<div className="bg-amber-50 p-5 rounded-2xl mb-6 border border-amber-100"><span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-2">備註事項</span><p className="text-amber-800 text-sm leading-relaxed">{caseData.extData.note}</p></div>)}
                             
-                            {}
                             {childCases.length > 0 && (
                                 <div className="bg-blue-50/50 border border-blue-100 rounded-3xl p-6 mb-6">
                                      <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wider mb-4 flex items-center gap-2"><Icons.Folder /> 併入此案的子案件 ({childCases.length})</h3>
@@ -1196,76 +1248,25 @@
                                      </div>
                                 </div>
                             )}
-
-                            <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative border border-slate-100">
-                                <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">案件基本資訊</span>
-                                    {caseData.status !== 'CLOSED' && !isEditingBasic && (<button onClick={() => setIsEditingBasic(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>)}
+                            
+                            {caseData.status !== 'MERGED' && caseData.status !== 'CLOSED' && (
+                                <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl shrink-0 transition-all mt-6">
+                                    {!showMergePanel ? (
+                                         <button onClick={() => setShowMergePanel(true)} className="w-full py-3 bg-white border border-slate-300 text-slate-600 font-bold rounded-xl flex justify-center items-center gap-2 hover:bg-slate-100 hover:text-slate-800 transition-colors"><Icons.Link /> 將此案併入其他案件</button>
+                                    ) : (
+                                        <div className="animate-fade-in space-y-4">
+                                            <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700 flex items-center gap-2"><Icons.Search /> 搜尋主案件</h4><button onClick={() => setShowMergePanel(false)} className="text-slate-400 hover:text-slate-600">✕</button></div>
+                                            <input type="text" placeholder="輸入地點或內容關鍵字尋找..." className={`w-full rounded-xl px-4 py-3 border border-slate-300 bg-white ${themeRing}`} value={mergeSearchText} onChange={e => setMergeSearchText(e.target.value)} />
+                                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                                {mergeCandidates.length === 0 ? (<div className="text-center text-slate-400 py-4 text-xs">無符合的辦理中案件</div>) : (mergeCandidates.map(c => (<div key={c.id} onClick={() => performMerge(c.id)} className="bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-primary hover:shadow-sm transition-all group"><div className="font-bold text-slate-700 group-hover:text-primary mb-1 text-sm">{isSpecialMode ? c.content?.substring(0, 30) : c.location?.address}</div><div className="text-xs text-slate-400">{c.extData?.receiveDate || c.extData?.surveyDate}</div></div>)))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                {isEditingBasic ? (
-                                    <div className="flex flex-col gap-4 animate-fade-in">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-500">收文 / 收件日期</label><input type="date" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.receiveDate} onChange={e => setEditedBasic({...editedBasic, receiveDate: e.target.value})} /></div>
-                                            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-500">承辦人</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.assignee} onChange={e => setEditedBasic({...editedBasic, assignee: e.target.value})} /></div>
-                                            {!isSpecialMode && !isReplyMode && (
-                                                <div className="space-y-1.5 md:col-span-2"><label className="text-xs font-bold text-slate-500">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : caseData.category === 'FORWARD' ? '發文文號' : '通知文號'}</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.surveyDocNo} onChange={e => setEditedBasic({...editedBasic, surveyDocNo: e.target.value})} /></div>
-                                            )}
-                                            {isReplyMode && (
-                                                <div className="space-y-1.5 md:col-span-2"><label className="text-xs font-bold text-slate-500">回復文號</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500/20" value={editedBasic.replyDocNo} onChange={e => setEditedBasic({...editedBasic, replyDocNo: e.target.value})} /></div>
-                                            )}
-                                        </div>
-                                        <div className="flex justify-end gap-2"><button onClick={() => { setIsEditingBasic(false); setEditedBasic({ receiveDate: caseData.extData?.receiveDate||'', assignee: caseData.extData?.assignee||'', surveyDocNo: caseData.extData?.surveyDocNo||'', replyDocNo: caseData.extData?.replyDocNo||'' }); }} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">取消</button><button onClick={handleSaveBasic} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-indigo-600 shadow-sm transition-colors">儲存修改</button></div>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                                        <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">收文 / 收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
-                                        {isSpecialMode ? (
-                                            <>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">交辦時間</span><span className="font-bold text-slate-700">{caseData.extData?.assignDate || '-'}</span></div>
-                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預定結案</span><span className="font-bold text-slate-700">{caseData.extData?.completionDeadline || '-'}</span></div>
-                                            </>
-                                        ) : isForwardMode ? (
-                                            <>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">函轉單位</span><span className="font-bold text-slate-700">{caseData.extData?.forwardUnit || '-'}</span></div>
-                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">發文文號</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
-                                            </>
-                                        ) : isReplyMode ? (
-                                            <>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復日期</span><span className="font-bold text-slate-700">{caseData.extData?.replyDate || '-'}</span></div>
-                                                <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">回復文號</span><span className="font-bold text-slate-700">{caseData.extData?.replyDocNo || '-'}</span></div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '尚未指派'}</span></div>
-                                                <div><span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{caseData.category === 'A1' ? '會勘通知文號(分局來文)' : caseData.category === 'OTHER_UNIT' ? '會勘通知文號' : '通知文號'}</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || '-'}</span></div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            )}
                         </div>
-                        
-                        {caseData.status !== 'MERGED' && caseData.status !== 'CLOSED' && (
-                            <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl shrink-0 transition-all">
-                                {!showMergePanel ? (
-                                     <button onClick={() => setShowMergePanel(true)} className="w-full py-3 bg-white border border-slate-300 text-slate-600 font-bold rounded-xl flex justify-center items-center gap-2 hover:bg-slate-100 hover:text-slate-800 transition-colors"><Icons.Link /> 將此案併入其他案件</button>
-                                ) : (
-                                    <div className="animate-fade-in space-y-4">
-                                        <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700 flex items-center gap-2"><Icons.Search /> 搜尋主案件</h4><button onClick={() => setShowMergePanel(false)} className="text-slate-400 hover:text-slate-600">✕</button></div>
-                                        <input type="text" placeholder="輸入地點或內容關鍵字尋找..." className="w-full rounded-xl px-4 py-3 border border-slate-300 bg-white" value={mergeSearchText} onChange={e => setMergeSearchText(e.target.value)} />
-                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                            {mergeCandidates.length === 0 ? (<div className="text-center text-slate-400 py-4 text-xs">無符合的辦理中案件</div>) : (mergeCandidates.map(c => (<div key={c.id} onClick={() => performMerge(c.id)} className="bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-primary hover:shadow-sm transition-all group"><div className="font-bold text-slate-700 group-hover:text-primary mb-1 text-sm">{isSpecialMode ? c.content?.substring(0, 30) : c.location?.address}</div><div className="text-xs text-slate-400">{c.extData?.receiveDate || c.extData?.surveyDate}</div></div>)))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                     
-                    {}
                     <div className="w-full xl:w-7/12 flex flex-col gap-6 overflow-y-auto pr-2">
                         {caseData.status === 'MERGED' && (
                              <div className="bg-slate-100 border-2 border-slate-300 p-8 rounded-3xl flex flex-col items-center justify-center text-center gap-4">
@@ -1290,12 +1291,12 @@
                                     <>
                                         <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">函轉單位</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.forwardUnit || ''} onChange={e => setEditExtData({...editExtData, forwardUnit: e.target.value})} /></div>
                                         <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
-                                        <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">結案日期 (函轉結案)</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-slate-600 bg-slate-50 border border-slate-200" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">結案日期 (函轉結案)</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-slate-600 bg-slate-50 border border-slate-200" value={editExtData.completionDate || ''} onChange={e => setEditExtData({...editExtData, completionDate: e.target.value})} /></div>
                                     </>
                                 ) : caseData.category === 'OTHER_UNIT' ? (
                                     <>
                                         <div className="space-y-1.5 md:col-span-2"><label className="text-sm font-medium text-slate-600 px-1">陳情單位</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.forwardUnit || ''} onChange={e => setEditExtData({...editExtData, forwardUnit: e.target.value})} /></div>
-                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.surveyDate || ''} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, surveyDate: val, completionDeadline: calculateMonthsDeadline(val, 2)}); }} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘時間</label><input type="datetime-local" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={getDatetimeLocal(editExtData.surveyDate)} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, surveyDate: val, completionDeadline: calculateMonthsDeadline(val.substring(0,10), 2)}); }} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" placeholder="輸入紀錄文號" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} /></div>
                                         <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">辦理情形/決議</label><textarea rows="2" disabled={caseData.status==='CLOSED'} className="w-full rounded-3xl px-4 py-4 leading-relaxed border border-slate-200" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2 my-2 border-b border-slate-100"></div>
@@ -1324,7 +1325,7 @@
                                     </>
                                 ) : (
                                     <>
-                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘日期</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.surveyDate || ''} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val, 3), completionDeadline: calculateMonthsDeadline(val, caseData.category === 'A1' ? 1 : 2)}); }} /></div>
+                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘時間</label><input type="datetime-local" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={getDatetimeLocal(editExtData.surveyDate)} onChange={e => { const val = e.target.value; setEditExtData({ ...editExtData, surveyDate: val, recordDeadline: calculateWorkingDays(val.substring(0,10), 3), completionDeadline: calculateMonthsDeadline(val.substring(0,10), caseData.category === 'A1' ? 1 : 2)}); }} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50 border border-indigo-200" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} /></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} /></div>
@@ -1398,19 +1399,13 @@
                     try {
                         if (!window.fbStandaloneApp) {
                             window.fbStandaloneApp = initializeApp(myFirebaseConfig, "App" + Date.now());
-                            
-                            // 啟用 Firestore 離線快取機制，大幅減少雲端讀取次數
-                            window.fbStandaloneDb = initializeFirestore(window.fbStandaloneApp, {
-                                localCache: persistentLocalCache()
-                            });
-                            
+                            window.fbStandaloneDb = initializeFirestore(window.fbStandaloneApp, { localCache: persistentLocalCache() });
                             window.fbAuth = getAuth(window.fbStandaloneApp);
                         }
                         try { await signInAnonymously(window.fbAuth); } catch (e) {}
                         const db = window.fbStandaloneDb;
                         unsubscribe = onSnapshot(collection(db, 'my_cases'), (snapshot) => {
-                            const loadedCases = [];
-                            snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
+                            const loadedCases = []; snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
                             setCases(sortCases(loadedCases)); setSyncStatus('SYNCED');
                         }, (e) => { setSyncStatus('ERROR'); try { const localData = localStorage.getItem('cases_backup'); if (localData) setCases(sortCases(JSON.parse(localData))); } catch(err) {} });
                     } catch(e) { setSyncStatus('ERROR'); window.fbStandaloneDb = null; try { const localData = localStorage.getItem('cases_backup'); if (localData) setCases(sortCases(JSON.parse(localData))); } catch(err) {} }
@@ -1423,8 +1418,9 @@
 
             const config = useMemo(() => ({
                 tabs: [
-                    { id: 'PROCESSING', label: '辦理中', icon: Icons.List, filter: c => c.status !== 'CLOSED' && c.status !== 'MERGED' },
-                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive, filter: c => c.status === 'CLOSED' || c.status === 'MERGED' }
+                    { id: 'PROCESSING', label: '辦理中', icon: Icons.List },
+                    { id: 'CALENDAR', label: '會勘行事曆', icon: Icons.Calendar },
+                    { id: 'CLOSED', label: '已結案', icon: Icons.Archive }
                 ]
             }), []);
             
@@ -1450,7 +1446,6 @@
                 return cases.filter(c => {
                     if (c.status === 'CLOSED' || c.status === 'MERGED' || !c.extData?.completionDeadline) return false;
                     if (c.extData?.dismissedClosingNotice) return false;
-                    
                     const deadline = new Date(c.extData.completionDeadline); deadline.setHours(0, 0, 0, 0);
                     const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                     if (diffDays <= 15) { c.daysLeft = diffDays; return true; }
@@ -1459,9 +1454,7 @@
             }, [cases]);
 
             const dismissNotice = async (e, id, type) => {
-                e.stopPropagation();
-                const caseToUpdate = cases.find(c => c.id === id);
-                if (!caseToUpdate) return;
+                e.stopPropagation(); const caseToUpdate = cases.find(c => c.id === id); if (!caseToUpdate) return;
                 const fieldName = type === 'RECORD' ? 'dismissedRecordNotice' : 'dismissedClosingNotice';
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, [fieldName]: true } };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
@@ -1486,17 +1479,16 @@
             };
 
             const handleUpdateBasicInfo = async (id, updates) => {
-                const caseToUpdate = cases.find(c => c.id === id);
-                if (!caseToUpdate) return;
-                const updatedCase = { ...caseToUpdate, ...updates };
+                const caseToUpdate = cases.find(c => c.id === id); if (!caseToUpdate) return;
+                const mergedExtData = updates.extData ? { ...caseToUpdate.extData, ...updates.extData } : caseToUpdate.extData;
+                const updatedCase = { ...caseToUpdate, ...updates, extData: mergedExtData };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c))); setSelectedCase(cleanCase);
                 if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
             };
 
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
-                const caseToUpdate = cases.find(c => c.id === id);
-                if (!caseToUpdate) return;
+                const caseToUpdate = cases.find(c => c.id === id); if (!caseToUpdate) return;
                 let updatedHistory = caseToUpdate.history;
                 if (replyText) updatedHistory = [...caseToUpdate.history, { date: getLocalISODate(), author: '承辦人員', content: replyText, type: 'STAFF' }];
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
@@ -1506,10 +1498,8 @@
             };
 
             const handleEditHistory = async (id, historyIdx, newContent) => {
-                const caseToUpdate = cases.find(c => c.id === id);
-                if (!caseToUpdate) return;
-                let updatedHistory = [...caseToUpdate.history];
-                updatedHistory[historyIdx] = { ...updatedHistory[historyIdx], content: newContent };
+                const caseToUpdate = cases.find(c => c.id === id); if (!caseToUpdate) return;
+                let updatedHistory = [...caseToUpdate.history]; updatedHistory[historyIdx] = { ...updatedHistory[historyIdx], content: newContent };
                 const updatedCase = { ...caseToUpdate, history: updatedHistory };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase));
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c))); setSelectedCase(cleanCase);
@@ -1524,20 +1514,17 @@
             };
             
             const handleMergeCase = async (childId, parentId) => {
-                const childCase = cases.find(c => c.id === childId);
-                const parentCase = cases.find(c => c.id === parentId);
+                const childCase = cases.find(c => c.id === childId); const parentCase = cases.find(c => c.id === parentId);
                 if (!childCase || !parentCase) return;
                 const updatedChild = { ...childCase, status: 'MERGED', mergedInto: parentId, history: [...childCase.history, { date: getLocalISODate(), author: `系統`, content: `案件已併入主案件`, type: 'SYS' }] };
                 const updatedParent = { ...parentCase, history: [...parentCase.history, { date: getLocalISODate(), author: `系統`, content: `已併入關聯案件 (${childCase.location?.address || childCase.content?.substring(0,10)})`, type: 'SYS' }] };
-                const cleanChild = JSON.parse(JSON.stringify(updatedChild));
-                const cleanParent = JSON.parse(JSON.stringify(updatedParent));
+                const cleanChild = JSON.parse(JSON.stringify(updatedChild)); const cleanParent = JSON.parse(JSON.stringify(updatedParent));
                 setCases(prev => prev.map(c => c.id === childId ? cleanChild : c.id === parentId ? cleanParent : c)); setSelectedCase(cleanChild);
                 if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', childId), cleanChild); await setDoc(doc(window.fbStandaloneDb, 'my_cases', parentId), cleanParent); } catch (err) {} }
             };
 
             const handleUnmergeCase = async (childId, parentId) => {
-                const childCase = cases.find(c => c.id === childId);
-                if (!childCase) return;
+                const childCase = cases.find(c => c.id === childId); if (!childCase) return;
                 const updatedChild = { ...childCase, status: 'PENDING', mergedInto: null, history: [...childCase.history, { date: getLocalISODate(), author: `系統`, content: `解除併案，恢復獨立辦理`, type: 'SYS' }] };
                 const cleanChild = JSON.parse(JSON.stringify(updatedChild));
                 setCases(prev => prev.map(c => c.id === childId ? cleanChild : c));
@@ -1549,70 +1536,36 @@
 
             const handleExportExcel = () => {
                 const ws = XLSX.utils.json_to_sheet(cases.map(c => ({
-                    '案件編號': c.id,
-                    '案件類型': c.caseType === 'SPECIAL' ? '特殊交辦' : '一般案件',
-                    '案件類別': c.category,
-                    '狀態': c.status === 'CLOSED' ? '已結案' : c.status === 'MERGED' ? '已併案' : '辦理中',
-                    '行政區': c.location?.district || '',
-                    '詳細地點': c.location?.address || '',
-                    '陳情人/主政單位': c.petitioner?.name || '',
-                    '案件內容': c.content || '',
-                    '收文/收件日期': c.extData?.receiveDate || '',
-                    '會勘日期': c.extData?.surveyDate || '',
-                    '派工日期': c.extData?.dispatchDate || '',
-                    '實際結案日期': c.extData?.completionDate || '',
-                    '結案期限': c.extData?.completionDeadline || '',
-                    '承辦人': c.extData?.assignee || '',
-                    '備註': c.extData?.note || ''
+                    '案件編號': c.id, '案件類型': c.caseType === 'SPECIAL' ? '特殊交辦' : '一般案件', '案件類別': c.category, '狀態': c.status === 'CLOSED' ? '已結案' : c.status === 'MERGED' ? '已併案' : '辦理中',
+                    '行政區': c.location?.district || '', '詳細地點': c.location?.address || '', '陳情人/主政單位': c.petitioner?.name || '', '案件內容': c.content || '',
+                    '收文/收件日期': c.extData?.receiveDate || '', '會勘日期': c.extData?.surveyDate || '', '派工日期': c.extData?.dispatchDate || '', '實際結案日期': c.extData?.completionDate || '',
+                    '結案期限': c.extData?.completionDeadline || '', '承辦人': c.extData?.assignee || '', '備註': c.extData?.note || ''
                 })));
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "案件清單");
-                XLSX.writeFile(wb, `案件列管清單_${getLocalISODate()}.xlsx`);
-                setShowSettings(false);
+                const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "案件清單"); XLSX.writeFile(wb, `案件列管清單_${getLocalISODate()}.xlsx`); setShowSettings(false);
             };
 
             const handleExportJSON = () => {
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cases, null, 2));
-                const a = document.createElement('a');
-                a.href = dataStr;
-                a.download = `案件備份_${getLocalISODate()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setShowSettings(false);
+                const a = document.createElement('a'); a.href = dataStr; a.download = `案件備份_${getLocalISODate()}.json`; document.body.appendChild(a); a.click(); a.remove(); setShowSettings(false);
             };
 
             const handleImportJSON = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
+                const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
                         const importedCases = JSON.parse(event.target.result);
                         if (Array.isArray(importedCases)) {
-                            const sortedCases = sortCases(importedCases);
-                            setCases(sortedCases);
+                            const sortedCases = sortCases(importedCases); setCases(sortedCases);
                             if (window.fbStandaloneDb) {
                                 const { setDoc, doc } = window.FirebaseModules;
-                                for (const c of sortedCases) {
-                                    await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c);
-                                }
+                                for (const c of sortedCases) { await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c); }
                             }
-                            setSysModal({
-                                isOpen: true, title: '匯入成功', content: `已成功匯入還原 ${sortedCases.length} 筆案件資料，並已同步至雲端。`,
-                                actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-primary text-white rounded-xl font-bold">確認</button>
-                            });
+                            setSysModal({ isOpen: true, title: '匯入成功', content: `已成功匯入還原 ${sortedCases.length} 筆案件資料。`, actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-primary text-white rounded-xl font-bold">確認</button> });
                         }
-                    } catch (err) {
-                        setSysModal({
-                            isOpen: true, title: '匯入失敗', content: `檔案格式錯誤，無法正確解析備份檔。`,
-                            actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-red-500 text-white rounded-xl font-bold">確認</button>
-                        });
-                    }
+                    } catch (err) { setSysModal({ isOpen: true, title: '匯入失敗', content: `檔案格式錯誤。`, actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-red-500 text-white rounded-xl font-bold">確認</button> }); }
                 };
-                reader.readAsText(file);
-                setShowSettings(false);
-                e.target.value = null;
+                reader.readAsText(file); setShowSettings(false); e.target.value = null;
             };
 
             return (
@@ -1710,7 +1663,6 @@
                         </div>
                     </main>
                     
-                    {}
                     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 flex justify-around p-2 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
                          <button onClick={() => setView('LIST')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'LIST' ? 'text-primary' : 'text-slate-400'}`}><Icons.List /><span className="text-[10px] font-bold mt-1">一般案件</span></button>
                          <button onClick={() => setView('MAP')} className={`flex flex-col items-center p-2 rounded-xl transition-colors ${view === 'MAP' ? 'text-primary' : 'text-slate-400'}`}><Icons.MapIcon /><span className="text-[10px] font-bold mt-1">地圖</span></button>
