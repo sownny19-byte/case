@@ -29,8 +29,12 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { primary: '#6366f1', secondary: '#94a3b8', surface: '#f8fafc' },
-                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.03)', 'float': '0 10px 40px -10px rgba(0, 0, 0, 0.08)' },
+                    colors: { 
+                        primary: 'var(--color-primary, #6366f1)', 
+                        secondary: '#94a3b8', 
+                        surface: 'var(--color-surface, #f8fafc)' 
+                    },
+                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)', 'float': '0 10px 40px -10px rgba(0, 0, 0, 0.12)' },
                     borderRadius: { '2xl': '1rem', '3xl': '1.5rem' }
                 }
             }
@@ -39,19 +43,35 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #334155; }
+        :root {
+            --color-primary: #6366f1;
+            --color-surface: #f8fafc;
+            --color-sidebar: #ffffff;
+            --color-card: #ffffff;
+            --color-text: #1e293b;
+            --color-input: #f1f5f9;
+        }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--color-surface); color: var(--color-text); transition: background-color 0.25s ease, color 0.25s ease; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
         input[type="text"], input[type="email"], input[type="date"], input[type="datetime-local"], select, textarea {
-            transition: all 0.2s ease-in-out; border: 1px solid transparent; background-color: #f1f5f9;
+            transition: all 0.2s ease-in-out; border: 1px solid transparent; background-color: var(--color-input); color: var(--color-text);
         }
         input:focus, select:focus, textarea:focus {
-            background-color: #ffffff; border-color: #c7d2fe; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); outline: none;
+            background-color: var(--color-card); border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); outline: none;
         }
         input:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        /* 動態主題面板色彩覆寫 */
+        .theme-sidebar { background-color: var(--color-sidebar) !important; transition: background-color 0.25s ease; }
+        .theme-app .bg-white { background-color: var(--color-card) !important; transition: background-color 0.25s ease; }
+        .theme-app .text-slate-800, .theme-app .text-slate-700 { color: var(--color-text) !important; }
+        .theme-app .bg-indigo-50 { background-color: color-mix(in srgb, var(--color-primary) 12%, var(--color-card)) !important; }
+        .theme-app .text-indigo-600, .theme-app .text-indigo-700 { color: var(--color-primary) !important; }
+        .theme-app .border-indigo-100, .theme-app .border-indigo-200 { border-color: color-mix(in srgb, var(--color-primary) 28%, transparent) !important; }
 
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -104,6 +124,31 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, Fragment } = React;
+
+        // ============================================================================
+        // 【公版預設雲端設定區】
+        // 說明：可在此處直接填入團隊共用的 Firebase 設定，或留空讓使用者於網頁右上角「雲端設定」自行填入。
+        // ============================================================================
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y",            // 請填入您的 Firebase API Key (留空則預設啟用單機模式)
+            authDomain: "case-data-b9894.firebaseapp.com",        // 例如: your-project-id.firebaseapp.com
+            projectId: "case-data-b9894",         // 例如: your-project-id
+            collectionName: "my_cases" // 預設 Firestore 集合名稱
+        };
+
+        // 10 種預設主題風格配置
+        const THEME_PRESETS = [
+            { id: 'indigo', name: '1. 經典靛藍 (預設)', primary: '#6366f1', surface: '#f8fafc', sidebar: '#ffffff', card: '#ffffff', text: '#1e293b', input: '#f1f5f9' },
+            { id: 'emerald', name: '2. 翡翠森林', primary: '#10b981', surface: '#f0fdf4', sidebar: '#ffffff', card: '#ffffff', text: '#064e3b', input: '#dcfce7' },
+            { id: 'ocean', name: '3. 海洋微風', primary: '#0284c7', surface: '#f0f9ff', sidebar: '#ffffff', card: '#ffffff', text: '#0c4a6e', input: '#e0f2fe' },
+            { id: 'sakura', name: '4. 櫻花粉韻', primary: '#ec4899', surface: '#fdf2f8', sidebar: '#ffffff', card: '#ffffff', text: '#831843', input: '#fce7f3' },
+            { id: 'amber', name: '5. 琥珀暖陽', primary: '#d97706', surface: '#fffbeb', sidebar: '#ffffff', card: '#ffffff', text: '#78350f', input: '#fef3c7' },
+            { id: 'violet', name: '6. 皇家紫羅蘭', primary: '#8b5cf6', surface: '#f5f3ff', sidebar: '#ffffff', card: '#ffffff', text: '#4c1d95', input: '#ede9fe' },
+            { id: 'slate', name: '7. 極簡商務灰', primary: '#334155', surface: '#f1f5f9', sidebar: '#f8fafc', card: '#ffffff', text: '#0f172a', input: '#e2e8f0' },
+            { id: 'teal', name: '8. 薄荷青瓷', primary: '#0d9488', surface: '#f0fdfa', sidebar: '#ffffff', card: '#ffffff', text: '#134e4a', input: '#ccfbf1' },
+            { id: 'burgundy', name: '9. 勃根地酒紅', primary: '#be123c', surface: '#fff1f2', sidebar: '#ffffff', card: '#ffffff', text: '#881337', input: '#ffe4e6' },
+            { id: 'dark', name: '10. 深邃暗夜', primary: '#818cf8', surface: '#0f172a', sidebar: '#1e293b', card: '#1e293b', text: '#f1f5f9', input: '#334155' }
+        ];
 
         const TAOYUAN_DISTRICTS = ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龜山區', '大園區', '觀音區', '新屋區', '龍潭區', '復興區'];
         const DISTRICT_COORDS = {
@@ -231,6 +276,8 @@
             Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
             ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>,
             ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
+            Cloud: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>,
+            Palette: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>,
         };
 
         const Modal = ({ isOpen, title, content, actions }) => {
@@ -242,6 +289,177 @@
                             <h3 className="text-xl font-bold text-slate-800 mb-3">{title}</h3>
                             <div className="text-slate-500 text-base mb-8 whitespace-pre-wrap leading-relaxed">{content}</div>
                             <div className="flex flex-col gap-3">{actions}</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 雲端設定專用視窗組件
+        const FirebaseConfigModal = ({ isOpen, onClose, currentConfig, onSave, onClear }) => {
+            const [formData, setFormData] = useState({
+                apiKey: '', authDomain: '', projectId: '', collectionName: 'my_cases'
+            });
+
+            useEffect(() => {
+                if (isOpen) {
+                    setFormData({
+                        apiKey: currentConfig?.apiKey || '',
+                        authDomain: currentConfig?.authDomain || '',
+                        projectId: currentConfig?.projectId || '',
+                        collectionName: currentConfig?.collectionName || 'my_cases'
+                    });
+                }
+            }, [isOpen, currentConfig]);
+
+            if (!isOpen) return null;
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({
+                    apiKey: formData.apiKey.trim(),
+                    authDomain: formData.authDomain.trim() || `${formData.projectId.trim()}.firebaseapp.com`,
+                    projectId: formData.projectId.trim(),
+                    collectionName: formData.collectionName.trim() || 'my_cases'
+                });
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-float max-w-lg w-full overflow-hidden border border-slate-100">
+                        <div className="p-6 md:p-8">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                    <span className="p-2 rounded-xl bg-indigo-50 text-primary"><Icons.Cloud /></span>
+                                    雲端資料庫設定 (Firebase)
+                                </h3>
+                                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 font-bold">✕</button>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                💡 填入您個人的 Firebase 專案金鑰即可啟用跨裝置雲端即時同步。請確保您的 Firestore 規則已開啟讀寫權限，且 Authentication 已啟用「匿名登入 (Anonymous)」。若留空則以「單機模式」儲存在瀏覽器中。
+                            </p>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 block mb-1.5 px-1">API Key <span className="text-rose-500">*</span></label>
+                                    <input required type="text" placeholder="例如：AIzaSyDIF96erTBV..." className="w-full rounded-xl px-4 py-3 text-sm font-mono border border-slate-200 bg-slate-50 focus:bg-white" value={formData.apiKey} onChange={e => setFormData({...formData, apiKey: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 block mb-1.5 px-1">Project ID (專案 ID) <span className="text-rose-500">*</span></label>
+                                    <input required type="text" placeholder="例如：my-case-system-123" className="w-full rounded-xl px-4 py-3 text-sm font-mono border border-slate-200 bg-slate-50 focus:bg-white" value={formData.projectId} onChange={e => setFormData({...formData, projectId: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 block mb-1.5 px-1">Auth Domain (選填)</label>
+                                        <input type="text" placeholder="預設由 Project ID 自動推算" className="w-full rounded-xl px-4 py-3 text-sm font-mono border border-slate-200 bg-slate-50 focus:bg-white" value={formData.authDomain} onChange={e => setFormData({...formData, authDomain: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 block mb-1.5 px-1">集合名稱 (Collection)</label>
+                                        <input type="text" placeholder="預設：my_cases" className="w-full rounded-xl px-4 py-3 text-sm font-mono border border-slate-200 bg-slate-50 focus:bg-white" value={formData.collectionName} onChange={e => setFormData({...formData, collectionName: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2.5 pt-4 border-t border-slate-100 mt-6">
+                                    {currentConfig?.apiKey && (
+                                        <button type="button" onClick={onClear} className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold text-sm transition-colors">
+                                            切換回單機模式
+                                        </button>
+                                    )}
+                                    <button type="button" onClick={onClose} className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors">
+                                        取消
+                                    </button>
+                                    <button type="submit" className="flex-1 px-4 py-3 bg-primary hover:opacity-90 text-white rounded-xl font-bold text-sm shadow-md transition-colors">
+                                        儲存並連線
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 面板風格與自訂色彩設定視窗組件
+        const ThemeSettingsModal = ({ isOpen, onClose, themeConfig, onUpdateTheme, onResetTheme }) => {
+            if (!isOpen) return null;
+
+            const colorFields = [
+                { key: 'primary', label: '主題強調色 (按鈕/標籤/選取)' },
+                { key: 'surface', label: '系統背景底色 (主畫面背景)' },
+                { key: 'sidebar', label: '側邊導覽列背景色' },
+                { key: 'card', label: '卡片與面板背景色 (表格/區塊)' },
+                { key: 'text', label: '主要文字顏色' },
+                { key: 'input', label: '輸入框與次要區塊底色' }
+            ];
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-float max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
+                        <div className="p-6 md:p-8 overflow-y-auto space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                    <span className="p-2 rounded-xl bg-indigo-50 text-primary"><Icons.Palette /></span>
+                                    面板風格與自訂色彩設定
+                                </h3>
+                                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 font-bold text-lg">✕</button>
+                            </div>
+
+                            {/* 10 種預設主題風格 */}
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">快速切換 10 種預設風格</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                                    {THEME_PRESETS.map(preset => {
+                                        const isSelected = themeConfig.id === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() => onUpdateTheme({ ...preset })}
+                                                className={`p-3 rounded-2xl border text-left transition-all flex flex-col gap-2 hover:scale-[1.02] ${isSelected ? 'border-primary ring-2 ring-primary/30 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
+                                                style={{ backgroundColor: preset.surface }}
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded-full shadow-sm border border-white/50" style={{ backgroundColor: preset.primary }}></span>
+                                                    <span className="w-4 h-4 rounded-full border border-slate-300/60" style={{ backgroundColor: preset.card }}></span>
+                                                    <span className="w-4 h-4 rounded-full border border-slate-300/60" style={{ backgroundColor: preset.sidebar }}></span>
+                                                </div>
+                                                <div className="text-xs font-bold truncate" style={{ color: preset.text }}>{preset.name}</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* 自訂各介面顏色 */}
+                            <div className="border-t border-slate-100 pt-5">
+                                <div className="flex justify-between items-center mb-3 px-1">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">自訂各介面區域顏色 (即時預覽)</span>
+                                    {themeConfig.id === 'custom' && <span className="text-xs font-bold text-primary bg-indigo-50 px-2.5 py-0.5 rounded-full">目前使用：自訂配色</span>}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                    {colorFields.map(field => (
+                                        <div key={field.key} className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 bg-slate-50/60">
+                                            <label className="text-xs font-bold text-slate-700">{field.label}</label>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-mono text-slate-400 uppercase">{themeConfig[field.key]}</span>
+                                                <input
+                                                    type="color"
+                                                    value={themeConfig[field.key]}
+                                                    onChange={(e) => onUpdateTheme({ ...themeConfig, id: 'custom', name: '自訂風格', [field.key]: e.target.value })}
+                                                    className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
+                                <button type="button" onClick={onResetTheme} className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors">
+                                    恢復預設風格
+                                </button>
+                                <button type="button" onClick={onClose} className="flex-1 px-5 py-3 bg-primary hover:opacity-90 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+                                    完成設定
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1040,7 +1258,6 @@
                                 </div>
                             </section>
 
-                            {}
                             {!isSpecialMode && (formData.category === 'REPLY' || formData.category === 'OTHER') ? (
                                 <section>
                                     <h3 className="text-sm font-bold text-cyan-600 uppercase tracking-wider mb-5 px-1">{formData.category === 'OTHER' ? '處理資訊' : '回復預定資訊'}</h3>
@@ -1504,36 +1721,126 @@
             const [selectedCase, setSelectedCase] = useState(null);
             const [showNotifications, setShowNotifications] = useState(false);
             const [showSettings, setShowSettings] = useState(false);
+            const [showFbModal, setShowFbModal] = useState(false);
+            const [showThemeModal, setShowThemeModal] = useState(false);
             const [syncStatus, setSyncStatus] = useState('CONNECTING');
             const [sysModal, setSysModal] = useState({ isOpen: false });
+
+            // 讀取並管理主題風格與自訂顏色設定
+            const [themeConfig, setThemeConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('user_theme_config');
+                    if (saved) return JSON.parse(saved);
+                } catch (e) {}
+                return THEME_PRESETS[0];
+            });
+
+            useEffect(() => {
+                const root = document.documentElement;
+                root.style.setProperty('--color-primary', themeConfig.primary || '#6366f1');
+                root.style.setProperty('--color-surface', themeConfig.surface || '#f8fafc');
+                root.style.setProperty('--color-sidebar', themeConfig.sidebar || '#ffffff');
+                root.style.setProperty('--color-card', themeConfig.card || '#ffffff');
+                root.style.setProperty('--color-text', themeConfig.text || '#1e293b');
+                root.style.setProperty('--color-input', themeConfig.input || '#f1f5f9');
+                try { localStorage.setItem('user_theme_config', JSON.stringify(themeConfig)); } catch (e) {}
+            }, [themeConfig]);
             
+            // 讀取使用者儲存於 localStorage 的 Firebase 設定，若無則使用程式碼頂端的 DEFAULT_FIREBASE_CONFIG
+            const [fbConfig, setFbConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('user_firebase_config');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && parsed.apiKey) return parsed;
+                    }
+                } catch (e) {}
+                return DEFAULT_FIREBASE_CONFIG;
+            });
+
+            const collectionName = fbConfig?.collectionName || 'my_cases';
             const fileInputRef = useRef(null);
 
             useEffect(() => {
                 let unsubscribe = null;
+                const loadLocalBackup = () => {
+                    try {
+                        const localData = localStorage.getItem('cases_backup');
+                        if (localData) setCases(sortCases(JSON.parse(localData)));
+                    } catch (err) {}
+                };
+
+                // 若未設定 API Key 或 Project ID，直接進入單機模式
+                if (!fbConfig || !fbConfig.apiKey || !fbConfig.projectId) {
+                    window.fbStandaloneDb = null;
+                    setSyncStatus('LOCAL_ONLY');
+                    loadLocalBackup();
+                    return;
+                }
+
+                setSyncStatus('CONNECTING');
                 const initStandaloneFirebase = async () => {
                     const { initializeApp, initializeFirestore, persistentLocalCache, collection, onSnapshot, getAuth, signInAnonymously } = window.FirebaseModules;
-                    const myFirebaseConfig = { apiKey: "AIzaSyDIF96erTBV_p_2AxPH1_szXQ-L57wyk3Y", authDomain: "case-data-b9894.firebaseapp.com", projectId: "case-data-b9894" };
                     try {
-                        if (!window.fbStandaloneApp) {
-                            window.fbStandaloneApp = initializeApp(myFirebaseConfig, "App" + Date.now());
-                            window.fbStandaloneDb = initializeFirestore(window.fbStandaloneApp, { localCache: persistentLocalCache() });
-                            window.fbAuth = getAuth(window.fbStandaloneApp);
-                        }
-                        try { await signInAnonymously(window.fbAuth); } catch (e) {}
-                        const db = window.fbStandaloneDb;
-                        unsubscribe = onSnapshot(collection(db, 'my_cases'), (snapshot) => {
+                        const appInstance = initializeApp({
+                            apiKey: fbConfig.apiKey,
+                            authDomain: fbConfig.authDomain || `${fbConfig.projectId}.firebaseapp.com`,
+                            projectId: fbConfig.projectId
+                        }, "App_" + Date.now());
+                        
+                        const db = initializeFirestore(appInstance, { localCache: persistentLocalCache() });
+                        const auth = getAuth(appInstance);
+                        
+                        window.fbStandaloneApp = appInstance;
+                        window.fbStandaloneDb = db;
+                        window.fbAuth = auth;
+
+                        try { await signInAnonymously(auth); } catch (e) { console.warn("匿名登入警告:", e); }
+                        
+                        unsubscribe = onSnapshot(collection(db, collectionName), (snapshot) => {
                             const loadedCases = [];
                             snapshot.forEach(d => loadedCases.push({ id: d.id, ...d.data() }));
-                            setCases(sortCases(loadedCases)); setSyncStatus('SYNCED');
-                        }, (e) => { setSyncStatus('ERROR'); try { const localData = localStorage.getItem('cases_backup'); if (localData) setCases(sortCases(JSON.parse(localData))); } catch(err) {} });
-                    } catch(e) { setSyncStatus('ERROR'); window.fbStandaloneDb = null; try { const localData = localStorage.getItem('cases_backup'); if (localData) setCases(sortCases(JSON.parse(localData))); } catch(err) {} }
+                            setCases(sortCases(loadedCases));
+                            setSyncStatus('SYNCED');
+                        }, (e) => {
+                            console.error("Firestore 同步失敗:", e);
+                            setSyncStatus('ERROR');
+                            loadLocalBackup();
+                        });
+                    } catch(e) {
+                        console.error("Firebase 初始化失敗:", e);
+                        setSyncStatus('ERROR');
+                        window.fbStandaloneDb = null;
+                        loadLocalBackup();
+                    }
                 };
-                const checkFirebase = setInterval(() => { if (window.FirebaseModules) { clearInterval(checkFirebase); initStandaloneFirebase(); } }, 50);
-                return () => { clearInterval(checkFirebase); if (unsubscribe) unsubscribe(); };
-            }, []);
+
+                const checkFirebase = setInterval(() => {
+                    if (window.FirebaseModules) {
+                        clearInterval(checkFirebase);
+                        initStandaloneFirebase();
+                    }
+                }, 50);
+
+                return () => {
+                    clearInterval(checkFirebase);
+                    if (unsubscribe) unsubscribe();
+                };
+            }, [fbConfig, collectionName]);
 
             useEffect(() => { try { localStorage.setItem('cases_backup', JSON.stringify(cases)); } catch(e) {} }, [cases]);
+
+            const handleSaveFbConfig = (newCfg) => {
+                localStorage.setItem('user_firebase_config', JSON.stringify(newCfg));
+                setFbConfig(newCfg);
+                setShowFbModal(false);
+            };
+
+            const handleClearFbConfig = () => {
+                localStorage.removeItem('user_firebase_config');
+                setFbConfig({ apiKey: "", authDomain: "", projectId: "", collectionName: "my_cases" });
+                setShowFbModal(false);
+            };
 
             const config = useMemo(() => ({
                 tabs: [
@@ -1581,7 +1888,7 @@
                 const updatedCase = { ...caseToUpdate, extData: { ...caseToUpdate.extData, [fieldName]: true } };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 setCases(prev => prev.map(c => c.id === id ? cleanCase : c));
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, id), cleanCase); } catch (err) {} }
             };
 
             const handleCreateCase = async (newCase) => {
@@ -1597,7 +1904,7 @@
                 setCases(prev => sortCases([cleanRecord, ...prev]));
                 setView(newCase.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST'); 
                 setActiveListTab(caseRecord.status === 'CLOSED' ? 'CLOSED' : 'PROCESSING'); 
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', caseId), cleanRecord); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, caseId), cleanRecord); } catch (err) {} }
             };
 
             const handleUpdateBasicInfo = async (id, updates) => {
@@ -1606,7 +1913,7 @@
                 const updatedCase = { ...caseToUpdate, ...updates };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c))); setSelectedCase(cleanCase);
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, id), cleanCase); } catch (err) {} }
             };
 
             const handleUpdateStatus = async (id, newStatus, replyText, newExtData) => {
@@ -1617,7 +1924,7 @@
                 const updatedCase = { ...caseToUpdate, status: newStatus, history: updatedHistory, extData: newExtData ? { ...caseToUpdate.extData, ...newExtData } : caseToUpdate.extData };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase)); 
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c))); setSelectedCase(cleanCase);
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, id), cleanCase); } catch (err) {} }
             };
 
             const handleEditHistory = async (id, historyIdx, newContent) => {
@@ -1628,14 +1935,14 @@
                 const updatedCase = { ...caseToUpdate, history: updatedHistory };
                 const cleanCase = JSON.parse(JSON.stringify(updatedCase));
                 setCases(prevCases => sortCases(prevCases.map(c => c.id === id ? cleanCase : c))); setSelectedCase(cleanCase);
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', id), cleanCase); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, id), cleanCase); } catch (err) {} }
             };
 
             const handleDeleteCase = async (id) => {
                 const deletedCase = cases.find(c => c.id === id);
                 const returnView = deletedCase?.caseType === 'SPECIAL' ? 'SPECIAL_LIST' : 'LIST';
                 setCases(prevCases => prevCases.filter(c => c.id !== id && c.mergedInto !== id)); setSelectedCase(null); setView(returnView);
-                if (window.fbStandaloneDb) { try { const { deleteDoc, doc } = window.FirebaseModules; await deleteDoc(doc(window.fbStandaloneDb, 'my_cases', id)); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { deleteDoc, doc } = window.FirebaseModules; await deleteDoc(doc(window.fbStandaloneDb, collectionName, id)); } catch (err) {} }
             };
             
             const handleMergeCase = async (childId, parentId) => {
@@ -1647,7 +1954,7 @@
                 const cleanChild = JSON.parse(JSON.stringify(updatedChild));
                 const cleanParent = JSON.parse(JSON.stringify(updatedParent));
                 setCases(prev => prev.map(c => c.id === childId ? cleanChild : c.id === parentId ? cleanParent : c)); setSelectedCase(cleanChild);
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', childId), cleanChild); await setDoc(doc(window.fbStandaloneDb, 'my_cases', parentId), cleanParent); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, childId), cleanChild); await setDoc(doc(window.fbStandaloneDb, collectionName, parentId), cleanParent); } catch (err) {} }
             };
 
             const handleUnmergeCase = async (childId, parentId) => {
@@ -1657,7 +1964,7 @@
                 const cleanChild = JSON.parse(JSON.stringify(updatedChild));
                 setCases(prev => prev.map(c => c.id === childId ? cleanChild : c));
                 if(selectedCase && selectedCase.id === parentId) setSelectedCase({...selectedCase});
-                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, 'my_cases', childId), cleanChild); } catch (err) {} }
+                if (window.fbStandaloneDb) { try { const { setDoc, doc } = window.FirebaseModules; await setDoc(doc(window.fbStandaloneDb, collectionName, childId), cleanChild); } catch (err) {} }
             };
 
             const totalNotices = overdueCases.length + closingNotices.length;
@@ -1696,10 +2003,10 @@
                             const sortedCases = sortCases(importedCases); setCases(sortedCases);
                             if (window.fbStandaloneDb) {
                                 const { setDoc, doc } = window.FirebaseModules;
-                                for (const c of sortedCases) { await setDoc(doc(window.fbStandaloneDb, 'my_cases', c.id), c); }
+                                for (const c of sortedCases) { await setDoc(doc(window.fbStandaloneDb, collectionName, c.id), c); }
                             }
                             setSysModal({
-                                isOpen: true, title: '匯入成功', content: `已成功匯入還原 ${sortedCases.length} 筆案件資料，並已同步至雲端。`,
+                                isOpen: true, title: '匯入成功', content: `已成功匯入還原 ${sortedCases.length} 筆案件資料${window.fbStandaloneDb ? '，並已同步至雲端' : ' (目前為單機儲存模式)'}。`,
                                 actions: <button onClick={() => setSysModal({ isOpen: false })} className="w-full px-4 py-3 bg-primary text-white rounded-xl font-bold">確認</button>
                             });
                         }
@@ -1714,9 +2021,23 @@
             };
 
             return (
-                <div className="h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row bg-surface">
+                <div className="theme-app h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row bg-surface">
                     <Modal {...sysModal} />
-                    <aside className="hidden md:flex w-72 bg-white border-r border-slate-100 flex-col shrink-0 z-20">
+                    <ThemeSettingsModal
+                        isOpen={showThemeModal}
+                        onClose={() => setShowThemeModal(false)}
+                        themeConfig={themeConfig}
+                        onUpdateTheme={setThemeConfig}
+                        onResetTheme={() => setThemeConfig(THEME_PRESETS[0])}
+                    />
+                    <FirebaseConfigModal 
+                        isOpen={showFbModal} 
+                        onClose={() => setShowFbModal(false)} 
+                        currentConfig={fbConfig} 
+                        onSave={handleSaveFbConfig} 
+                        onClear={handleClearFbConfig} 
+                    />
+                    <aside className="theme-sidebar hidden md:flex w-72 bg-white border-r border-slate-100 flex-col shrink-0 z-20">
                         <div className="p-8 pb-4">
                             <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center mb-6 shadow-float"><Icons.Folder /></div>
                             <h1 className="text-2xl font-black tracking-tight text-slate-800">列管案件管理</h1>
@@ -1736,7 +2057,25 @@
                         <header className="bg-transparent px-6 md:px-10 py-6 flex justify-between items-center z-[60] shrink-0">
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{view === 'LIST' && '案件清單總覽'}{view === 'SPECIAL_LIST' && '特殊交辦清單'}{view === 'CREATE' && '建立一般案件'}{view === 'CREATE_SPECIAL' && '建立特殊交辦'}{view === 'DETAIL' && '案件處理進度'}{view === 'MAP' && '案件空間分布'}</h2>
                             <div className="flex items-center gap-2 md:gap-3">
-                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-soft text-xs font-bold border border-slate-100">{syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">連線中...</span></>}{syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}</div>
+                                <button 
+                                    onClick={() => setShowFbModal(true)} 
+                                    title="點擊設定雲端資料庫 (Firebase)"
+                                    className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-full bg-white hover:bg-slate-50 shadow-soft text-xs font-bold border border-slate-100 transition-all cursor-pointer"
+                                >
+                                    {syncStatus === 'CONNECTING' && <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span className="text-slate-500">雲端連線中...</span></>}
+                                    {syncStatus === 'SYNCED' && <><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-emerald-700">雲端已同步</span></>}
+                                    {syncStatus === 'LOCAL_ONLY' && <><span className="w-2 h-2 rounded-full bg-slate-400"></span><span className="text-slate-600">單機模式 (點擊設定雲端)</span></>}
+                                    {syncStatus === 'ERROR' && <><span className="w-2 h-2 rounded-full bg-rose-500"></span><span className="text-rose-600">連線失敗 (點擊重設)</span></>}
+                                </button>
+
+                                <button 
+                                    onClick={() => { setShowThemeModal(true); setShowNotifications(false); setShowSettings(false); }} 
+                                    title="面板風格與配色設定"
+                                    className="p-3 rounded-2xl bg-white text-slate-500 shadow-soft hover:text-primary hover:bg-indigo-50 transition-all flex items-center gap-1.5"
+                                >
+                                    <Icons.Palette />
+                                    <span className="hidden lg:inline text-xs font-bold">風格切換</span>
+                                </button>
                                 
                                 <div className="relative">
                                     <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }} className={`relative p-3 rounded-2xl transition-all ${showNotifications ? 'bg-indigo-100 text-primary shadow-inner' : 'bg-white text-slate-400 shadow-soft hover:text-primary hover:bg-indigo-50'}`}><Icons.Bell />{totalNotices > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">{totalNotices}</span>)}</button>
@@ -1760,7 +2099,7 @@
                                                     )}
                                                     {closingNotices.length > 0 && (
                                                         <div className={overdueCases.length > 0 ? "border-t-4 border-slate-100" : ""}>
-                                                            <div className="bg-amber-50/90 backdrop-blur-md px-5 py-4 border-b border-amber-100 sticky top-0 z-10 shadow-sm"><h3 className="font-black text-amber-700 text-sm flex items-center gap-2"><Icons.Clock /> 結案即跟到期 ({closingNotices.length})</h3></div>
+                                                            <div className="bg-amber-50/90 backdrop-blur-md px-5 py-4 border-b border-amber-100 sticky top-0 z-10 shadow-sm"><h3 className="font-black text-amber-700 text-sm flex items-center gap-2"><Icons.Clock /> 結案即將到期 ({closingNotices.length})</h3></div>
                                                             <div className="divide-y divide-slate-50 bg-white">
                                                                 {closingNotices.map(c => (
                                                                     <div key={c.id} onClick={() => { handleSelectCase(c); setShowNotifications(false); }} className="p-5 hover:bg-amber-50/30 cursor-pointer transition-colors group relative">
@@ -1785,7 +2124,14 @@
                                     {showSettings && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)}></div>
-                                            <div className="absolute right-0 mt-3 w-52 bg-white rounded-2xl shadow-float border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right flex flex-col p-2 gap-1">
+                                            <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-float border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right flex flex-col p-2 gap-1">
+                                                <button onClick={() => { setShowThemeModal(true); setShowSettings(false); }} className="flex items-center gap-2 px-3 py-2.5 text-sm text-primary font-bold hover:bg-indigo-50 rounded-xl transition-colors">
+                                                    <Icons.Palette /> 面板風格與配色
+                                                </button>
+                                                <button onClick={() => { setShowFbModal(true); setShowSettings(false); }} className="flex items-center gap-2 px-3 py-2.5 text-sm text-indigo-600 font-bold hover:bg-indigo-50 rounded-xl transition-colors">
+                                                    <Icons.Cloud /> 雲端設定 (Firebase)
+                                                </button>
+                                                <div className="h-px bg-slate-100 my-1 mx-2"></div>
                                                 <button onClick={handleExportExcel} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 font-bold hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"><Icons.FileText /> 匯出清單 (Excel)</button>
                                                 <div className="h-px bg-slate-100 my-1 mx-2"></div>
                                                 <button onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 font-bold hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"><Icons.Download /> 下載備份 (JSON)</button>
