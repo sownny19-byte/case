@@ -1802,7 +1802,7 @@
                                                 </div>
                                             )}
 
-                                            {/* 其他單位辦理：同時具備「陳情人」、「主政單位」、「陳情單位」 */}
+                                            {/* 其他單位辦理：保留「陳情人」與「主政單位」，移除「陳情單位」 */}
                                             {formData.category === 'OTHER_UNIT' && (
                                                 <>
                                                     <div className="space-y-1.5">
@@ -1812,10 +1812,6 @@
                                                     <div className="space-y-1.5">
                                                         <label className="text-sm font-medium text-slate-600 px-1">主政單位</label>
                                                         <input required type="text" className="w-full rounded-2xl px-4 py-3.5" value={formData.extData.hostUnit || ''} onChange={e => handleExtData('hostUnit', e.target.value)} placeholder="輸入主政單位名稱" />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-600 px-1">陳情單位 (選填)</label>
-                                                        <input type="text" className="w-full rounded-2xl px-4 py-3.5" value={formData.extData.forwardUnit || ''} onChange={e => handleExtData('forwardUnit', e.target.value)} placeholder="輸入陳情單位" />
                                                     </div>
                                                 </>
                                             )}
@@ -2173,7 +2169,6 @@
                                             <>
                                                 <p>陳情人：<span className="font-bold text-slate-700">{caseData.petitioner?.name || '-'}</span></p>
                                                 <p>主政單位：<span className="font-bold text-blue-700">{caseData.extData?.hostUnit || '-'}</span></p>
-                                                {caseData.extData?.forwardUnit && <p>陳情單位：<span className="font-bold text-slate-700">{caseData.extData.forwardUnit}</span></p>}
                                             </>
                                         ) : (
                                             <p>陳情人：<span className="font-bold text-slate-700">{caseData.petitioner?.name || '-'}</span></p>
@@ -2199,8 +2194,8 @@
                                         {!isSpecialMode && (isA1Mode || isOtherUnitMode) && (
                                             <div><label className="text-xs font-bold text-slate-500 block mb-1">主政單位</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.hostUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, hostUnit: e.target.value})} /></div>
                                         )}
-                                        {!isSpecialMode && (isOtherUnitMode || isForwardMode) && (
-                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">{isForwardMode ? '函轉單位' : '陳情單位'}</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.forwardUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, forwardUnit: e.target.value})} /></div>
+                                        {!isSpecialMode && isForwardMode && (
+                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">函轉單位</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.forwardUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, forwardUnit: e.target.value})} /></div>
                                         )}
                                         {!isSpecialMode && (
                                             <div><label className="text-xs font-bold text-slate-500 block mb-1">{docNoLabel}</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.surveyDocNo} onChange={e => setEditBasicInfoData({...editBasicInfoData, surveyDocNo: e.target.value})} /></div>
