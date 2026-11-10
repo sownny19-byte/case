@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>案件列管系統</title>
+    <title>案件列管系統 (公版)</title>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -1115,10 +1115,12 @@
             return 'text-slate-600';
         };
 
-        const LocationPicker = ({ lat, lng, onChange }) => {
+        const LocationPicker = ({ lat, lng, onChange, readOnly = false, defaultHeight = 320 }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
             const markerRef = useRef(null);
+            const [boxHeight, setBoxHeight] = useState(defaultHeight);
+            const [isDraggingResize, setIsDraggingResize] = useState(false);
 
             useEffect(() => {
                 if (!mapRef.current) return;
@@ -1127,18 +1129,94 @@
                     L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=zh-TW&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google Maps' }).addTo(map);
                     const iconHtml = `<div style="width: 24px; height: 24px; background-color: #ef4444; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4);"></div>`;
                     const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-                    const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map);
-                    marker.on('dragend', () => { const pos = marker.getLatLng(); onChange(pos.lat, pos.lng); });
+                    const marker = L.marker([lat, lng], { draggable: !readOnly, icon }).addTo(map);
+                    marker.on('dragend', () => {
+                        if (onChange) {
+                            const pos = marker.getLatLng();
+                            onChange(pos.lat, pos.lng);
+                        }
+                    });
                     mapInstanceRef.current = map;
                     markerRef.current = marker;
                     setTimeout(() => map.invalidateSize(), 300);
                 } else {
-                    mapInstanceRef.current.setView([lat, lng], 16);
+                    mapInstanceRef.current.setView([lat, lng], mapInstanceRef.current.getZoom() || 16);
                     markerRef.current.setLatLng([lat, lng]);
+                    if (markerRef.current.dragging) {
+                        if (readOnly) markerRef.current.dragging.disable();
+                        else markerRef.current.dragging.enable();
+                    }
                 }
-            }, [lat, lng]);
+            }, [lat, lng, readOnly]);
 
-            return <div ref={mapRef} className="w-full h-full z-0"></div>;
+            // 監聽容器高度變化與視窗拉伸，自動刷新地圖圖磚範圍
+            useEffect(() => {
+                if (!mapRef.current || !mapInstanceRef.current) return;
+                mapInstanceRef.current.invalidateSize();
+                if (typeof ResizeObserver !== 'undefined') {
+                    const observer = new ResizeObserver(() => {
+                        if (mapInstanceRef.current) {
+                            mapInstanceRef.current.invalidateSize();
+                        }
+                    });
+                    observer.observe(mapRef.current);
+                    return () => observer.disconnect();
+                }
+            }, [boxHeight]);
+
+            // 處理底部拖曳拉桿上下拉伸
+            const startResizeDrag = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const startY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+                const startHeight = mapRef.current ? mapRef.current.offsetHeight : boxHeight;
+                setIsDraggingResize(true);
+
+                const onMove = (moveEvent) => {
+                    const currentY = moveEvent.type.includes('touch') ? moveEvent.touches[0].clientY : moveEvent.clientY;
+                    const deltaY = currentY - startY;
+                    const nextHeight = Math.min(750, Math.max(180, startHeight + deltaY));
+                    setBoxHeight(nextHeight);
+                };
+
+                const onUp = () => {
+                    setIsDraggingResize(false);
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onUp);
+                    window.removeEventListener('touchmove', onMove);
+                    window.removeEventListener('touchend', onUp);
+                };
+
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+                window.addEventListener('touchmove', onMove, { passive: false });
+                window.addEventListener('touchend', onUp);
+            };
+
+            return (
+                <div className="w-full flex flex-col select-none">
+                    <div
+                        ref={mapRef}
+                        style={{ height: `${boxHeight}px`, minHeight: '180px', maxHeight: '750px', resize: 'vertical' }}
+                        className="w-full z-0 overflow-hidden"
+                    ></div>
+                    <div
+                        onMouseDown={startResizeDrag}
+                        onTouchStart={startResizeDrag}
+                        className={`w-full py-1.5 px-3 bg-slate-100 hover:bg-indigo-50 border-t border-slate-200 flex items-center justify-between cursor-ns-resize transition-colors ${isDraggingResize ? 'bg-indigo-100 text-primary' : 'text-slate-500'}`}
+                        title="上下拖曳可自由調整地圖檢視高度"
+                    >
+                        <span className="text-[11px] font-bold flex items-center gap-1.5">
+                            <span className="tracking-widest font-black">↕</span> 上下拖曳拉伸地圖範圍 ({Math.round(boxHeight)}px)
+                        </span>
+                        <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                            <button type="button" onClick={() => setBoxHeight(240)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${boxHeight <= 250 ? 'bg-primary text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>標準</button>
+                            <button type="button" onClick={() => setBoxHeight(400)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${boxHeight > 250 && boxHeight <= 450 ? 'bg-primary text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>加大</button>
+                            <button type="button" onClick={() => setBoxHeight(580)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${boxHeight > 450 ? 'bg-primary text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>特大</button>
+                        </div>
+                    </div>
+                </div>
+            );
         };
 
         const CaseMap = ({ cases, onSelectCase }) => {
@@ -1716,6 +1794,9 @@
                             submitData.name = '';
                             submitData.content = '';
                             submitData.extData.recordDeadline = '';
+                        } else if (submitData.category === 'OTHER_UNIT') {
+                            submitData.extData.recordDeadline = '';
+                            submitData.extData.recordActualDate = '';
                         }
                         submitData.location = { 
                             district: submitData.district, address: submitData.address, lat: coords.lat, lng: coords.lng,
@@ -1759,7 +1840,7 @@
                                                 extData: {
                                                     ...prev.extData,
                                                     completionDeadline: newDeadline,
-                                                    recordDeadline: newCategory === 'A1' || newCategory === 'REPLY' || newCategory === 'FORWARD' ? '' : (prev.extData.surveyDate ? calculateWorkingDays(prev.extData.surveyDate, 3) : '')
+                                                    recordDeadline: ['A1', 'REPLY', 'FORWARD', 'OTHER_UNIT'].includes(newCategory) ? '' : (prev.extData.surveyDate ? calculateWorkingDays(prev.extData.surveyDate, 3) : '')
                                                 }
                                             }));
                                         }}>
@@ -1833,11 +1914,11 @@
                                             <div className="md:col-span-2 space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">詳細地點 (路口/地址)</label>
                                                 <input required type="text" className="w-full rounded-2xl px-4 py-3.5" placeholder="例如：中正路與力行路口" value={formData.address} onChange={e => { setFormData({...formData, address: e.target.value}); setUserDragged(false); }} />
-                                                <div className="mt-3 relative rounded-2xl overflow-hidden border border-slate-200 h-48 w-full shadow-inner">
-                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm text-slate-600">
-                                                        {isLocating ? <span className="animate-pulse text-indigo-500">自動定位中...</span> : '📍 可直接拖曳紅點微調位置'}
+                                                <div className="mt-3 relative rounded-2xl overflow-hidden border border-slate-200 w-full shadow-inner">
+                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm text-slate-600 pointer-events-none">
+                                                        {isLocating ? <span className="animate-pulse text-indigo-500">自動定位中...</span> : '📍 可直接拖曳紅點微調位置（底部可上下拉伸高度）'}
                                                     </div>
-                                                    <LocationPicker lat={coords.lat} lng={coords.lng} onChange={(lat,lng) => { setCoords({lat,lng}); setUserDragged(true); }} />
+                                                    <LocationPicker lat={coords.lat} lng={coords.lng} onChange={(lat,lng) => { setCoords({lat,lng}); setUserDragged(true); }} defaultHeight={340} />
                                                 </div>
                                             </div>
                                             {/* A1事故：無陳情內容(會勘事由)欄位 */}
@@ -1911,7 +1992,7 @@
                                             <input type="datetime-local" className="w-full rounded-2xl px-4 py-3.5 bg-white border-slate-200" value={getDatetimeLocal(formData.extData.surveyDate)} onChange={e => {
                                                 const val = e.target.value;
                                                 handleExtData('surveyDate', val);
-                                                if (formData.category !== 'A1') {
+                                                if (!['A1', 'OTHER_UNIT'].includes(formData.category)) {
                                                     handleExtData('recordDeadline', calculateWorkingDays(val, 3));
                                                 } else {
                                                     handleExtData('recordDeadline', '');
@@ -1919,13 +2000,13 @@
                                                 handleExtData('completionDeadline', calculateMonthsDeadline(val, formData.category === 'A1' ? 1 : 2));
                                             }} />
                                         </div>
-                                        {formData.category !== 'A1' && (
+                                        {!['A1', 'OTHER_UNIT'].includes(formData.category) && (
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-indigo-600 px-1">紀錄取號期限 (+3工作日)</label>
                                                 <input type="date" className="w-full rounded-xl px-3 py-2.5 bg-white border border-indigo-200" value={formData.extData.recordDeadline} onChange={e => handleExtData('recordDeadline', e.target.value)} />
                                             </div>
                                         )}
-                                        <div className={`space-y-1.5 ${formData.category === 'A1' ? 'md:col-span-2' : ''}`}>
+                                        <div className={`space-y-1.5 ${['A1', 'OTHER_UNIT'].includes(formData.category) ? 'md:col-span-2' : ''}`}>
                                             <label className="text-xs font-bold text-indigo-600 px-1">結案期限 (+{formData.category === 'A1' ? '1' : '2'}個月)</label>
                                             <input type="date" className="w-full rounded-xl px-3 py-2.5 bg-white border border-indigo-200" value={formData.extData.completionDeadline} onChange={e => handleExtData('completionDeadline', e.target.value)} />
                                         </div>
@@ -1945,6 +2026,9 @@
             );
         };
 
+        const CH_NUMS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+        const getDefaultStageName = (idx) => idx < 10 ? `第${CH_NUMS[idx]}階段` : `第${idx + 1}階段`;
+
         const CaseDetail = ({ caseData, allCases, onBack, onUpdateStatus, onDelete, onEditHistory, onUpdateBasicInfo, onMergeCase, onUnmergeCase, onSelectCase }) => {
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [modalConfig, setModalConfig] = useState({ isOpen: false });
@@ -1955,6 +2039,35 @@
             const isOtherUnitMode = !isSpecialMode && caseData.category === 'OTHER_UNIT';
             const [editingHistoryIdx, setEditingHistoryIdx] = useState(null);
             const [editingHistoryContent, setEditingHistoryContent] = useState('');
+
+            // 多階段管理狀態
+            const [activeStageIdx, setActiveStageIdx] = useState(0);
+            const [editingStageNameIdx, setEditingStageNameIdx] = useState(null);
+            const [editingStageNameVal, setEditingStageNameVal] = useState('');
+
+            // 正規化階段陣列（若舊案件無 stages 則自動將第一階段包裝生成）
+            const stages = useMemo(() => {
+                if (Array.isArray(caseData.stages) && caseData.stages.length > 0) {
+                    return caseData.stages.map((s, idx) => ({
+                        ...s,
+                        name: s.name || getDefaultStageName(idx),
+                        content: s.content !== undefined ? s.content : (idx === 0 ? (caseData.content || '') : ''),
+                        petitionerName: s.petitionerName !== undefined ? s.petitionerName : (idx === 0 ? (caseData.petitioner?.name || '') : ''),
+                        extData: { ...(s.extData || (idx === 0 ? caseData.extData : {}) || {}) }
+                    }));
+                }
+                return [{
+                    id: 'STAGE_1',
+                    name: '第一階段',
+                    createdAt: caseData.createdAt || getLocalISODate(),
+                    content: caseData.content || '',
+                    petitionerName: caseData.petitioner?.name || '',
+                    extData: { ...(caseData.extData || {}) }
+                }];
+            }, [caseData]);
+
+            const safeStageIdx = activeStageIdx < stages.length ? activeStageIdx : 0;
+            const currentStage = stages[safeStageIdx] || stages[0];
 
             const [isEditingAddress, setEditingAddress] = useState(false);
             const [editedAddress, setEditedAddress] = useState('');
@@ -1977,43 +2090,58 @@
                 assignDate: '', handlingStatus: '', assignee: '', replyDate: '', replyDocNo: '', replyContent: '', note: '', forwardUnit: '', hostUnit: '', customCategory: ''
             });
 
+            // 切換案件時預設顯示最新階段
+            useEffect(() => {
+                const count = Array.isArray(caseData.stages) && caseData.stages.length > 0 ? caseData.stages.length : 1;
+                setActiveStageIdx(count - 1);
+                setEditingStageNameIdx(null);
+            }, [caseData.id]);
+
+            // 當切換階段或案件資料更新時，載入該階段對應欄位
             useEffect(() => {
                 setEditedAddress(caseData.location?.address || '');
                 setEditedDistrict(caseData.location?.district || '桃園區');
                 setEditCoords({ lat: caseData.location?.lat || DISTRICT_COORDS[caseData.location?.district]?.lat || 24.9936, lng: caseData.location?.lng || DISTRICT_COORDS[caseData.location?.district]?.lng || 121.2238 });
                 setUserDragged(false);
-                setEditedContent(caseData.content || '');
+
+                const stExt = currentStage?.extData || {};
+                const stContent = currentStage?.content !== undefined ? currentStage.content : (safeStageIdx === 0 ? (caseData.content || '') : '');
+                const stPetitioner = currentStage?.petitionerName !== undefined ? currentStage.petitionerName : (safeStageIdx === 0 ? (caseData.petitioner?.name || '') : '');
+
+                setEditedContent(stContent);
                 setEditBasicInfoData({
-                    receiveDate: caseData.extData?.receiveDate || '',
-                    assignee: caseData.extData?.assignee || '',
-                    surveyDocNo: caseData.extData?.surveyDocNo || caseData.extData?.replyDocNo || '',
-                    petitionerName: caseData.petitioner?.name || '',
-                    hostUnit: caseData.extData?.hostUnit || '',
-                    forwardUnit: caseData.extData?.forwardUnit || ''
+                    receiveDate: stExt.receiveDate || '',
+                    assignee: stExt.assignee || '',
+                    surveyDocNo: stExt.surveyDocNo || stExt.replyDocNo || '',
+                    petitionerName: stPetitioner,
+                    hostUnit: stExt.hostUnit || '',
+                    forwardUnit: stExt.forwardUnit || ''
                 });
                 setEditExtData({
-                    receiveDate: caseData.extData?.receiveDate || '',
-                    surveyDate: caseData.extData?.surveyDate || '',
-                    recordDeadline: caseData.extData?.recordDeadline || '',
-                    recordActualDate: caseData.extData?.recordActualDate || '',
-                    recordDocNo: caseData.extData?.recordDocNo || '',
-                    surveyResolution: caseData.extData?.surveyResolution || '',
-                    dispatchDate: caseData.extData?.dispatchDate || '',
-                    completionDate: caseData.extData?.completionDate || '',
-                    completionDeadline: caseData.extData?.completionDeadline || '',
-                    noDispatchRequired: caseData.extData?.noDispatchRequired || false,
-                    assignDate: caseData.extData?.assignDate || '',
-                    handlingStatus: caseData.extData?.handlingStatus || '',
-                    assignee: caseData.extData?.assignee || '',
-                    replyDate: caseData.extData?.replyDate || '',
-                    replyDocNo: caseData.extData?.replyDocNo || caseData.extData?.surveyDocNo || '',
-                    replyContent: caseData.extData?.replyContent || '',
-                    note: caseData.extData?.note || '',
-                    forwardUnit: caseData.extData?.forwardUnit || '',
-                    hostUnit: caseData.extData?.hostUnit || '',
-                    customCategory: caseData.extData?.customCategory || ''
+                    receiveDate: stExt.receiveDate || '',
+                    surveyDate: stExt.surveyDate || '',
+                    recordDeadline: stExt.recordDeadline || '',
+                    recordActualDate: stExt.recordActualDate || '',
+                    recordDocNo: stExt.recordDocNo || '',
+                    surveyResolution: stExt.surveyResolution || '',
+                    dispatchDate: stExt.dispatchDate || '',
+                    completionDate: stExt.completionDate || '',
+                    completionDeadline: stExt.completionDeadline || '',
+                    noDispatchRequired: stExt.noDispatchRequired || false,
+                    assignDate: stExt.assignDate || '',
+                    handlingStatus: stExt.handlingStatus || '',
+                    assignee: stExt.assignee || '',
+                    replyDate: stExt.replyDate || '',
+                    replyDocNo: stExt.replyDocNo || stExt.surveyDocNo || '',
+                    replyContent: stExt.replyContent || '',
+                    note: stExt.note || '',
+                    forwardUnit: stExt.forwardUnit || '',
+                    hostUnit: stExt.hostUnit || '',
+                    customCategory: stExt.customCategory || caseData.extData?.customCategory || ''
                 });
-            }, [caseData.id, caseData]);
+                setEditingBasicInfo(false);
+                setEditingContent(false);
+            }, [caseData.id, caseData, safeStageIdx]);
 
             useEffect(() => {
                 if (!isEditingAddress || !editedAddress || userDragged) return;
@@ -2028,27 +2156,149 @@
 
             const closeM = () => setModalConfig({ isOpen: false });
 
-            const handleExtDataReply = async (stage) => {
+            // 整合各階段資料以同步回主案件 (保留第一階段基本資料，並將最新階段有填寫的進度同步至外層列表)
+            const buildRootExtFromStages = (updatedStages) => {
+                const baseExt = { ...(caseData.extData || {}), ...(updatedStages[0]?.extData || {}) };
+                for (let i = 1; i < updatedStages.length; i++) {
+                    const sExt = updatedStages[i]?.extData || {};
+                    Object.keys(sExt).forEach(k => {
+                        if (sExt[k] !== '' && sExt[k] !== null && sExt[k] !== undefined) {
+                            baseExt[k] = sExt[k];
+                        }
+                    });
+                }
+                return baseExt;
+            };
+
+            // 開設下一階段
+            const handleAddNextStage = async () => {
+                const nextIdx = stages.length;
+                const newStageName = getDefaultStageName(nextIdx);
+                const newStage = {
+                    id: 'STAGE_' + Date.now() + '_' + nextIdx,
+                    name: newStageName,
+                    createdAt: getLocalISODate(),
+                    content: '',
+                    petitionerName: '',
+                    extData: {
+                        receiveDate: '',
+                        surveyDate: '',
+                        surveyDocNo: '',
+                        assignee: '',
+                        recordDeadline: '',
+                        recordActualDate: '',
+                        recordDocNo: '',
+                        surveyResolution: '',
+                        dispatchDate: '',
+                        completionDate: '',
+                        completionDeadline: '',
+                        noDispatchRequired: false,
+                        assignDate: '',
+                        handlingStatus: '',
+                        replyDate: '',
+                        replyDocNo: '',
+                        replyContent: '',
+                        note: '',
+                        forwardUnit: '',
+                        hostUnit: '',
+                        customCategory: caseData.extData?.customCategory || ''
+                    }
+                };
+                const updatedStages = [...stages, newStage];
+                const updatedHistory = [
+                    ...(caseData.history || []),
+                    { date: getLocalISODate(), author: '承辦人員', content: `開設「${newStageName}」`, type: 'STAFF' }
+                ];
+                await onUpdateBasicInfo(caseData.id, {
+                    stages: updatedStages,
+                    history: updatedHistory
+                });
+                setActiveStageIdx(nextIdx);
+            };
+
+            // 修改階段名稱
+            const handleSaveStageName = async (idx) => {
+                const trimmed = editingStageNameVal.trim() || getDefaultStageName(idx);
+                const updatedStages = stages.map((s, i) => i === idx ? { ...s, name: trimmed } : s);
+                await onUpdateBasicInfo(caseData.id, { stages: updatedStages });
+                setEditingStageNameIdx(null);
+            };
+
+            // 刪除階段 (僅限第2階段以上)
+            const handleDeleteStage = (idx) => {
+                if (stages.length <= 1) return;
+                const targetStage = stages[idx];
+                setModalConfig({
+                    isOpen: true,
+                    title: `確認刪除「${targetStage?.name || getDefaultStageName(idx)}」`,
+                    content: '刪除後該階段填寫的紀錄將移除，確定要刪除此階段嗎？',
+                    actions: (
+                        <div className="flex gap-3 mt-4">
+                            <button onClick={closeM} className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">取消</button>
+                            <button onClick={async () => {
+                                closeM();
+                                const updatedStages = stages.filter((_, i) => i !== idx);
+                                const nextRootExt = buildRootExtFromStages(updatedStages);
+                                await onUpdateBasicInfo(caseData.id, {
+                                    stages: updatedStages,
+                                    extData: nextRootExt,
+                                    content: updatedStages[0]?.content || caseData.content,
+                                    petitioner: { name: updatedStages[0]?.petitionerName || '' }
+                                });
+                                setActiveStageIdx(Math.max(0, idx - 1));
+                            }} className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-md">確認刪除階段</button>
+                        </div>
+                    )
+                });
+            };
+
+            const handleExtDataReply = async (stageStatus) => {
                 setIsSubmitting(true);
                 try {
-                    let actionText = stage === 'CLOSED' ? '更新案件資訊並結案' : '更新案件處理資訊';
-                    if (stage === 'MERGED') actionText = '更新併案內容進度';
+                    const stName = currentStage?.name || getDefaultStageName(safeStageIdx);
+                    let actionText = stageStatus === 'CLOSED' ? `更新【${stName}】資訊並結案` : `更新【${stName}】處理資訊`;
+                    if (stageStatus === 'MERGED') actionText = `更新【${stName}】併案內容進度`;
                     let dataToSave = { ...editExtData };
                     if (isReplyMode) {
                         dataToSave.surveyDocNo = dataToSave.replyDocNo || dataToSave.surveyDocNo;
                     }
-                    if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
-                        actionText = `【辦理情形】${editExtData.handlingStatus}`; dataToSave.handlingStatus = '';
+                    if (isOtherUnitMode) {
+                        dataToSave.recordDeadline = '';
+                        dataToSave.recordActualDate = '';
                     }
-                    if (stage === 'CLOSED' && !dataToSave.completionDate) dataToSave.completionDate = getLocalISODate();
-                    await onUpdateStatus(caseData.id, stage, actionText, dataToSave);
+                    if (isSpecialMode && editExtData.handlingStatus && editExtData.handlingStatus.trim() !== '') {
+                        actionText = `【${stName} - 辦理情形】${editExtData.handlingStatus}`;
+                        dataToSave.handlingStatus = '';
+                    }
+                    if (stageStatus === 'CLOSED' && !dataToSave.completionDate) dataToSave.completionDate = getLocalISODate();
+
+                    const updatedStages = stages.map((s, i) => i === safeStageIdx ? {
+                        ...s,
+                        extData: { ...(s.extData || {}), ...dataToSave }
+                    } : s);
+                    const mergedRootExt = buildRootExtFromStages(updatedStages);
+                    if (stageStatus === 'CLOSED' && !mergedRootExt.completionDate) {
+                        mergedRootExt.completionDate = dataToSave.completionDate;
+                    }
+
+                    const updatedHistory = [
+                        ...(caseData.history || []),
+                        { date: getLocalISODate(), author: '承辦人員', content: actionText, type: 'STAFF' }
+                    ];
+
+                    await onUpdateBasicInfo(caseData.id, {
+                        status: stageStatus,
+                        stages: updatedStages,
+                        extData: mergedRootExt,
+                        history: updatedHistory
+                    });
                     if (isSpecialMode) setEditExtData(prev => ({ ...prev, handlingStatus: '' }));
                 } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
             };
 
             const handleRevert = async () => {
                 setIsSubmitting(true);
-                try { await onUpdateStatus(caseData.id, 'PENDING', '案件恢復為辦理中', editExtData); } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
+                try { await onUpdateStatus(caseData.id, 'PENDING', '案件恢復為辦理中', caseData.extData); } catch(e) { console.warn(e); } finally { setIsSubmitting(false); }
             };
 
             const delClick = () => {
@@ -2067,21 +2317,37 @@
                 onUpdateBasicInfo(caseData.id, { location: { ...caseData.location, address: editedAddress, district: editedDistrict, lat: editCoords.lat, lng: editCoords.lng, isFallback: false } });
                 setEditingAddress(false);
             };
-            const handleSaveContent = () => { onUpdateBasicInfo(caseData.id, { content: editedContent }); setEditingContent(false); };
+            const handleSaveContent = () => {
+                const updatedStages = stages.map((s, i) => i === safeStageIdx ? { ...s, content: editedContent } : s);
+                const updates = { stages: updatedStages };
+                if (safeStageIdx === 0) updates.content = editedContent;
+                onUpdateBasicInfo(caseData.id, updates);
+                setEditingContent(false);
+            };
             const handleSaveBasicInfo = () => {
-                const updatedExt = {
-                    ...caseData.extData,
+                const updatedStageExt = {
+                    ...(currentStage?.extData || {}),
                     receiveDate: editBasicInfoData.receiveDate,
                     assignee: editBasicInfoData.assignee,
                     surveyDocNo: editBasicInfoData.surveyDocNo,
-                    replyDocNo: isReplyMode ? editBasicInfoData.surveyDocNo : (caseData.extData?.replyDocNo || ''),
+                    replyDocNo: isReplyMode ? editBasicInfoData.surveyDocNo : (currentStage?.extData?.replyDocNo || ''),
                     hostUnit: editBasicInfoData.hostUnit,
                     forwardUnit: editBasicInfoData.forwardUnit
                 };
-                onUpdateBasicInfo(caseData.id, {
-                    petitioner: { ...caseData.petitioner, name: editBasicInfoData.petitionerName },
-                    extData: updatedExt
-                });
+                const updatedStages = stages.map((s, i) => i === safeStageIdx ? {
+                    ...s,
+                    petitionerName: editBasicInfoData.petitionerName,
+                    extData: updatedStageExt
+                } : s);
+                const nextRootExt = buildRootExtFromStages(updatedStages);
+                const updates = {
+                    stages: updatedStages,
+                    extData: nextRootExt
+                };
+                if (safeStageIdx === 0 || editBasicInfoData.petitionerName) {
+                    updates.petitioner = { ...caseData.petitioner, name: updatedStages[0]?.petitionerName || editBasicInfoData.petitionerName };
+                }
+                onUpdateBasicInfo(caseData.id, updates);
                 setEditingBasicInfo(false);
             };
 
@@ -2136,69 +2402,203 @@
                                 <h2 className="text-2xl font-black text-slate-800 leading-snug mb-2">特殊交辦案件</h2>
                             ) : (
                                 <>
-                                    <div className="group relative flex items-start justify-between mb-4 min-h-[3rem]">
+                                    <div className="group relative flex flex-col mb-4">
                                         {isEditingAddress ? (
-                                            <div className="flex-1 flex flex-col gap-3 mr-2 animate-fade-in w-full">
+                                            <div className="flex-1 flex flex-col gap-3 animate-fade-in w-full">
                                                 <div className="flex flex-col md:flex-row gap-2 items-start md:items-center w-full">
                                                     <select className="w-full md:w-32 rounded-xl px-3 py-2 border border-slate-300 font-bold text-slate-700 bg-white" value={editedDistrict} onChange={e => { setEditedDistrict(e.target.value); setUserDragged(false); }}>{TAOYUAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}</select>
                                                     <input type="text" className="w-full flex-1 rounded-xl px-3 py-2 border border-slate-300 text-lg font-black text-slate-800" value={editedAddress} onChange={e => { setEditedAddress(e.target.value); setUserDragged(false); }} autoFocus />
                                                     <div className="flex gap-1 shrink-0">
-                                                        <button onClick={() => setEditingAddress(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icons.Undo /></button>
-                                                        <button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg"><Icons.Check /></button>
+                                                        <button onClick={() => setEditingAddress(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg" title="取消"><Icons.Undo /></button>
+                                                        <button onClick={handleSaveAddress} className="p-2 text-primary hover:bg-indigo-50 rounded-lg" title="儲存定位"><Icons.Check /></button>
                                                     </div>
                                                 </div>
-                                                <div className="w-full relative h-40 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
-                                                    <LocationPicker lat={editCoords.lat} lng={editCoords.lng} onChange={(lat, lng) => { setEditCoords({lat, lng}); setUserDragged(true); }} />
+                                                <div className="w-full relative rounded-2xl overflow-hidden border border-indigo-200 shadow-inner">
+                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm text-primary pointer-events-none">
+                                                        {isLocating ? <span className="animate-pulse">自動定位中...</span> : '📍 拖曳紅點可微調座標，完成請點右上角勾選儲存'}
+                                                    </div>
+                                                    <LocationPicker lat={editCoords.lat} lng={editCoords.lng} onChange={(lat, lng) => { setEditCoords({lat, lng}); setUserDragged(true); }} defaultHeight={320} />
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex-1">
-                                                <h2 className="text-2xl font-black text-slate-800 leading-snug pr-8 break-all">{caseData.location?.address}</h2>
-                                                {caseData.status !== 'CLOSED' && (
-                                                    <button onClick={() => setEditingAddress(true)} className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改定位</button>
-                                                )}
+                                            <div className="flex-1 space-y-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <h2 className="text-2xl font-black text-slate-800 leading-snug break-all">{caseData.location?.address}</h2>
+                                                    {caseData.status !== 'CLOSED' && (
+                                                        <button onClick={() => setEditingAddress(true)} className="shrink-0 text-primary bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl flex items-center gap-1 text-xs font-bold transition-colors"><Icons.Edit /> 修改定位</button>
+                                                    )}
+                                                </div>
+                                                <div className="w-full relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
+                                                    <div className="absolute top-2 left-2 z-10 bg-white/95 px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-sm text-slate-600 pointer-events-none">
+                                                        📍 案件位置檢視（底部拉桿可上下拉伸高度）
+                                                    </div>
+                                                    <LocationPicker lat={editCoords.lat} lng={editCoords.lng} readOnly={true} defaultHeight={260} />
+                                                </div>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="text-slate-500 font-medium mb-8 space-y-1">
+                                    <div className="text-slate-500 font-medium mb-6 space-y-1">
                                         {caseData.category === 'SELF' ? (
                                             <p className="text-slate-400">自辦案件 (無陳情人)</p>
                                         ) : isA1Mode ? (
-                                            <p className="font-bold text-rose-700">主政單位：{caseData.extData?.hostUnit || '-'}</p>
+                                            <p className="font-bold text-rose-700">主政單位：{currentStage?.extData?.hostUnit || caseData.extData?.hostUnit || '-'}</p>
                                         ) : isOtherUnitMode ? (
                                             <>
-                                                <p>陳情人：<span className="font-bold text-slate-700">{caseData.petitioner?.name || '-'}</span></p>
-                                                <p>主政單位：<span className="font-bold text-blue-700">{caseData.extData?.hostUnit || '-'}</span></p>
+                                                <p>陳情人：<span className="font-bold text-slate-700">{currentStage?.petitionerName || caseData.petitioner?.name || '-'}</span></p>
+                                                <p>主政單位：<span className="font-bold text-blue-700">{currentStage?.extData?.hostUnit || caseData.extData?.hostUnit || '-'}</span></p>
                                             </>
                                         ) : (
-                                            <p>陳情人：<span className="font-bold text-slate-700">{caseData.petitioner?.name || '-'}</span></p>
+                                            <p>陳情人：<span className="font-bold text-slate-700">{currentStage?.petitionerName || caseData.petitioner?.name || '-'}</span></p>
                                         )}
                                     </div>
                                 </>
                             )}
 
+                            {/* 各階段內容閱覽與管理區 (左側欄位) */}
+                            <div className="bg-indigo-50/40 p-5 rounded-3xl mb-6 border border-indigo-100">
+                                <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                                    <div>
+                                        <span className="text-xs font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                            <Icons.List /> 各階段內容閱覽 ({stages.length} 階段)
+                                        </span>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">點擊階段卡片可切換檢視與編輯，第二階段後欄位均為選填</p>
+                                    </div>
+                                    {caseData.status !== 'CLOSED' && (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddNextStage}
+                                            className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold shadow-sm hover:opacity-95 transition-all flex items-center gap-1"
+                                        >
+                                            <Icons.Plus /> 開設下一階段
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3">
+                                    {stages.map((st, idx) => {
+                                        const isCurrent = idx === safeStageIdx;
+                                        const stExt = st.extData || {};
+                                        const stDocNo = stExt.surveyDocNo || stExt.replyDocNo || '';
+                                        const stTime = ['REPLY', 'FORWARD'].includes(caseData.category) ? (stExt.replyDate || '') : formatDateTime(stExt.surveyDate);
+                                        const stResolution = stExt.surveyResolution || stExt.replyContent || stExt.handlingStatus || '';
+                                        return (
+                                            <div
+                                                key={st.id || idx}
+                                                onClick={() => setActiveStageIdx(idx)}
+                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${isCurrent ? 'bg-white border-primary ring-2 ring-primary/20 shadow-sm' : 'bg-white/70 border-slate-200 hover:border-slate-300'}`}
+                                            >
+                                                <div className="flex justify-between items-center gap-2 mb-2">
+                                                    {editingStageNameIdx === idx ? (
+                                                        <div className="flex items-center gap-1.5 flex-1" onClick={e => e.stopPropagation()}>
+                                                            <input
+                                                                type="text"
+                                                                value={editingStageNameVal}
+                                                                onChange={e => setEditingStageNameVal(e.target.value)}
+                                                                placeholder={getDefaultStageName(idx)}
+                                                                className="flex-1 rounded-lg px-2.5 py-1 text-xs font-bold bg-white border border-indigo-300"
+                                                                autoFocus
+                                                            />
+                                                            <button type="button" onClick={() => handleSaveStageName(idx)} className="px-2.5 py-1 bg-primary text-white rounded-lg text-xs font-bold">儲存</button>
+                                                            <button type="button" onClick={() => setEditingStageNameIdx(null)} className="px-2 py-1 bg-slate-200 text-slate-600 rounded-lg text-xs font-bold">取消</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${isCurrent ? 'bg-primary text-white' : 'bg-slate-200 text-slate-700'}`}>
+                                                                {st.name || getDefaultStageName(idx)}
+                                                            </span>
+                                                            {isCurrent && <span className="text-[11px] font-bold text-primary">● 檢視/編輯中</span>}
+                                                        </div>
+                                                    )}
+
+                                                    {editingStageNameIdx !== idx && (
+                                                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setEditingStageNameIdx(idx); setEditingStageNameVal(st.name || getDefaultStageName(idx)); }}
+                                                                className="text-slate-400 hover:text-primary p-1 rounded-lg text-xs flex items-center gap-0.5 font-bold"
+                                                                title="重新命名階段"
+                                                            >
+                                                                <Icons.Edit /> 命名
+                                                            </button>
+                                                            {stages.length > 1 && idx > 0 && caseData.status !== 'CLOSED' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteStage(idx)}
+                                                                    className="text-rose-400 hover:text-rose-600 p-1 rounded-lg text-xs font-bold"
+                                                                    title="刪除此階段"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* 階段內容摘要閱覽 */}
+                                                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600 mt-2 pt-2 border-t border-slate-100">
+                                                    <div><span className="text-slate-400">收文/收件：</span><span className="font-bold">{stExt.receiveDate || '-'}</span></div>
+                                                    <div><span className="text-slate-400">承辦人：</span><span className="font-bold">{stExt.assignee || '-'}</span></div>
+                                                    {!isSpecialMode && (
+                                                        <div className="col-span-2 truncate"><span className="text-slate-400">{docNoLabel}：</span><span className="font-bold">{stDocNo || '-'}</span></div>
+                                                    )}
+                                                    {!isSpecialMode && !['REPLY', 'FORWARD'].includes(caseData.category) && (
+                                                        <div className="col-span-2"><span className="text-slate-400">會勘時間：</span><span className="font-bold">{stTime && stTime !== '-' ? stTime : '-'}</span></div>
+                                                    )}
+                                                    {!isSpecialMode && isReplyMode && (
+                                                        <div className="col-span-2"><span className="text-slate-400">回復日期：</span><span className="font-bold">{stExt.replyDate || '-'}</span></div>
+                                                    )}
+                                                    {st.content && !isA1Mode && (
+                                                        <div className="col-span-2 text-slate-600 bg-slate-50 p-2 rounded-xl mt-1 line-clamp-2">
+                                                            <span className="text-slate-400 font-bold">{isSpecialMode ? '交辦內容：' : '陳情內容：'}</span>{st.content}
+                                                        </div>
+                                                    )}
+                                                    {stResolution && (
+                                                        <div className="col-span-2 text-slate-600 bg-indigo-50/40 p-2 rounded-xl mt-1 line-clamp-2">
+                                                            <span className="text-primary font-bold">決議/辦理：</span>{stResolution}
+                                                        </div>
+                                                    )}
+                                                    {(stExt.dispatchDate || stExt.completionDate) && (
+                                                        <div className="col-span-2 flex gap-3 pt-1 text-[11px] text-slate-500">
+                                                            {stExt.dispatchDate && <span>派工：{stExt.dispatchDate}</span>}
+                                                            {stExt.completionDate && <span>完工/結案：{stExt.completionDate}</span>}
+                                                        </div>
+                                                    )}
+                                                    {stExt.note && (
+                                                        <div className="col-span-2 text-amber-700 bg-amber-50/70 px-2 py-1 rounded-lg mt-1 truncate">
+                                                            備註：{stExt.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative border border-slate-100">
                                 <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">案件基本資訊</span>
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                        {currentStage?.name || getDefaultStageName(safeStageIdx)} — 基本資訊 {safeStageIdx > 0 && <span className="text-[11px] text-primary font-normal">(選填)</span>}
+                                    </span>
                                     {caseData.status !== 'CLOSED' && !isEditingBasicInfo && (
                                         <button onClick={() => setEditingBasicInfo(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>
                                     )}
                                 </div>
                                 {isEditingBasicInfo ? (
                                     <div className="flex flex-col gap-3 animate-fade-in">
-                                        <div><label className="text-xs font-bold text-slate-500 block mb-1">收文 / 收件日期</label><input type="date" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.receiveDate} onChange={e => setEditBasicInfoData({...editBasicInfoData, receiveDate: e.target.value})} /></div>
-                                        <div><label className="text-xs font-bold text-slate-500 block mb-1">承辦人</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.assignee} onChange={e => setEditBasicInfoData({...editBasicInfoData, assignee: e.target.value})} /></div>
+                                        <div><label className="text-xs font-bold text-slate-500 block mb-1">收文 / 收件日期 (選填)</label><input type="date" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.receiveDate} onChange={e => setEditBasicInfoData({...editBasicInfoData, receiveDate: e.target.value})} /></div>
+                                        <div><label className="text-xs font-bold text-slate-500 block mb-1">承辦人 (選填)</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.assignee} onChange={e => setEditBasicInfoData({...editBasicInfoData, assignee: e.target.value})} /></div>
                                         {!isSpecialMode && !['SELF', 'A1'].includes(caseData.category) && (
-                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">陳情人</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.petitionerName} onChange={e => setEditBasicInfoData({...editBasicInfoData, petitionerName: e.target.value})} /></div>
+                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">陳情人 (選填)</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.petitionerName} onChange={e => setEditBasicInfoData({...editBasicInfoData, petitionerName: e.target.value})} /></div>
                                         )}
                                         {!isSpecialMode && (isA1Mode || isOtherUnitMode) && (
-                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">主政單位</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.hostUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, hostUnit: e.target.value})} /></div>
+                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">主政單位 (選填)</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.hostUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, hostUnit: e.target.value})} /></div>
                                         )}
                                         {!isSpecialMode && isForwardMode && (
-                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">函轉單位</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.forwardUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, forwardUnit: e.target.value})} /></div>
+                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">函轉單位 (選填)</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.forwardUnit} onChange={e => setEditBasicInfoData({...editBasicInfoData, forwardUnit: e.target.value})} /></div>
                                         )}
                                         {!isSpecialMode && (
-                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">{docNoLabel}</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.surveyDocNo} onChange={e => setEditBasicInfoData({...editBasicInfoData, surveyDocNo: e.target.value})} /></div>
+                                            <div><label className="text-xs font-bold text-slate-500 block mb-1">{docNoLabel} (選填)</label><input type="text" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white" value={editBasicInfoData.surveyDocNo} onChange={e => setEditBasicInfoData({...editBasicInfoData, surveyDocNo: e.target.value})} /></div>
                                         )}
                                         <div className="flex justify-end gap-2 mt-2">
                                             <button onClick={() => setEditingBasicInfo(false)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg">取消</button>
@@ -2207,16 +2607,16 @@
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
-                                        <div><span className="block text-xs font-bold text-slate-400 mb-0.5">收文/收件日期</span><span className="font-bold text-slate-700">{caseData.extData?.receiveDate || '-'}</span></div>
-                                        <div><span className="block text-xs font-bold text-slate-400 mb-0.5">承辦人</span><span className="font-bold text-slate-700">{caseData.extData?.assignee || '未指派'}</span></div>
+                                        <div><span className="block text-xs font-bold text-slate-400 mb-0.5">收文/收件日期</span><span className="font-bold text-slate-700">{currentStage?.extData?.receiveDate || '-'}</span></div>
+                                        <div><span className="block text-xs font-bold text-slate-400 mb-0.5">承辦人</span><span className="font-bold text-slate-700">{currentStage?.extData?.assignee || '未指派'}</span></div>
                                         {!isSpecialMode && (isA1Mode || isOtherUnitMode) && (
-                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">主政單位</span><span className="font-bold text-slate-700">{caseData.extData?.hostUnit || '-'}</span></div>
+                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">主政單位</span><span className="font-bold text-slate-700">{currentStage?.extData?.hostUnit || '-'}</span></div>
                                         )}
                                         {!isSpecialMode && isForwardMode && (
-                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">函轉單位</span><span className="font-bold text-slate-700">{caseData.extData?.forwardUnit || '-'}</span></div>
+                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">函轉單位</span><span className="font-bold text-slate-700">{currentStage?.extData?.forwardUnit || '-'}</span></div>
                                         )}
                                         {!isSpecialMode && (
-                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">{docNoLabel}</span><span className="font-bold text-slate-700">{caseData.extData?.surveyDocNo || caseData.extData?.replyDocNo || '-'}</span></div>
+                                            <div className="col-span-2"><span className="block text-xs font-bold text-slate-400 mb-0.5">{docNoLabel}</span><span className="font-bold text-slate-700">{currentStage?.extData?.surveyDocNo || currentStage?.extData?.replyDocNo || '-'}</span></div>
                                         )}
                                     </div>
                                 )}
@@ -2226,21 +2626,23 @@
                             {!isA1Mode && (
                                 <div className="bg-slate-50/70 p-6 rounded-3xl mb-6 group relative border border-slate-100">
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{isSpecialMode ? '交辦內容' : '陳情內容'}</span>
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                            {currentStage?.name || getDefaultStageName(safeStageIdx)} — {isSpecialMode ? '交辦內容' : '陳情內容'} {safeStageIdx > 0 && <span className="text-[11px] text-primary font-normal">(選填)</span>}
+                                        </span>
                                         {caseData.status !== 'CLOSED' && !isEditingContent && (
                                             <button onClick={() => setEditingContent(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:bg-indigo-50 p-1 rounded flex items-center gap-1 text-xs font-bold"><Icons.Edit /> 修改</button>
                                         )}
                                     </div>
                                     {isEditingContent ? (
                                         <div className="flex flex-col gap-3">
-                                            <textarea rows="4" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white text-slate-700" value={editedContent} onChange={e => setEditedContent(e.target.value)} autoFocus />
+                                            <textarea rows="4" className="w-full rounded-xl px-3 py-2 border border-slate-300 bg-white text-slate-700" placeholder="可選填此階段之陳情或會勘事由..." value={editedContent} onChange={e => setEditedContent(e.target.value)} autoFocus />
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => setEditingContent(false)} className="px-4 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg">取消</button>
                                                 <button onClick={handleSaveContent} className="px-4 py-1.5 text-xs font-bold bg-primary text-white rounded-lg">儲存修改</button>
                                             </div>
                                         </div>
                                     ) : (
-                                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{caseData.content}</p>
+                                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{currentStage?.content || <span className="text-slate-400 italic">尚未填寫內容 (點擊右上角修改可補充)</span>}</p>
                                     )}
                                 </div>
                             )}
@@ -2284,7 +2686,24 @@
                     
                     <div className="w-full xl:w-7/12 flex flex-col gap-6 overflow-y-auto pr-2">
                         <div className="bg-white p-8 rounded-3xl shadow-soft shrink-0 border border-slate-100 relative">
-                            <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><Icons.Check /> {caseData.status === 'CLOSED' ? '結案資訊' : '案件處理進度'}</h3>
+                            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+                                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                                    <Icons.Check /> {caseData.status === 'CLOSED' ? '結案資訊' : '案件處理進度'}
+                                    <span className="px-3 py-1 bg-indigo-50 text-primary rounded-full text-xs font-black">
+                                        {currentStage?.name || getDefaultStageName(safeStageIdx)}
+                                    </span>
+                                    {safeStageIdx > 0 && <span className="text-xs font-medium text-slate-400">(各欄位均為選填)</span>}
+                                </h3>
+                                {caseData.status !== 'CLOSED' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleAddNextStage}
+                                        className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-primary border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                                    >
+                                        <Icons.Plus /> 開設下一階段
+                                    </button>
+                                )}
+                            </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 {isSpecialMode ? (
@@ -2351,19 +2770,22 @@
                                                 setEditExtData({
                                                     ...editExtData,
                                                     surveyDate: val,
-                                                    recordDeadline: isA1Mode ? '' : calculateWorkingDays(val, 3),
-                                                    completionDeadline: calculateMonthsDeadline(val, isA1Mode ? 1 : 2)
+                                                    recordDeadline: (isA1Mode || isOtherUnitMode) ? '' : (val ? calculateWorkingDays(val, 3) : ''),
+                                                    completionDeadline: val ? calculateMonthsDeadline(val, isA1Mode ? 1 : 2) : editExtData.completionDeadline
                                                 });
                                             }} />
                                         </div>
-                                        {/* 2. A1事故：不需要「紀錄取號期限」欄位 */}
-                                        {!isA1Mode && (
+                                        {/* A1事故、其他單位辦理：不需要「紀錄取號期限」欄位 */}
+                                        {!isA1Mode && !isOtherUnitMode && (
                                             <div className="space-y-1.5">
                                                 <label className="text-sm font-medium text-slate-600 px-1">紀錄取號期限</label>
                                                 <input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-indigo-600 bg-indigo-50 border border-indigo-200" value={editExtData.recordDeadline || ''} onChange={e => setEditExtData({...editExtData, recordDeadline: e.target.value})} />
                                             </div>
                                         )}
-                                        <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} /></div>
+                                        {/* 其他單位辦理：不需要「紀錄實際取號日」欄位 */}
+                                        {!isOtherUnitMode && (
+                                            <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">紀錄實際取號日</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.recordActualDate || ''} onChange={e => setEditExtData({...editExtData, recordActualDate: e.target.value})} /></div>
+                                        )}
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘紀錄文號</label><input type="text" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 border border-slate-200" value={editExtData.recordDocNo || ''} onChange={e => setEditExtData({...editExtData, recordDocNo: e.target.value})} /></div>
                                         <div className="md:col-span-2 space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">會勘決議事項</label><textarea rows="2" disabled={caseData.status==='CLOSED'} className="w-full rounded-3xl px-4 py-4 border border-slate-200" value={editExtData.surveyResolution || ''} onChange={e => setEditExtData({...editExtData, surveyResolution: e.target.value})}></textarea></div>
                                         <div className="space-y-1.5"><label className="text-sm font-medium text-slate-600 px-1">結案期限</label><input type="date" disabled={caseData.status==='CLOSED'} className="w-full rounded-2xl px-4 py-3.5 text-orange-600 bg-orange-50 border border-orange-200" value={editExtData.completionDeadline || ''} onChange={e => setEditExtData({...editExtData, completionDeadline: e.target.value})} /></div>
